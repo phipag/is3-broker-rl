@@ -23,6 +23,7 @@ black = "^22.1.0"
 flake8 = "^4.0.1"
 mypy = "^0.950"
 pytest-cov = "^3.0.0"
+tensorboard = "^2.9.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -36,3 +37,5 @@ profile = "black"
 
 [tool.mypy]
 files = "is3_broker_rl"
+ignore_missing_imports = true
+plugins = "numpy.typing.mypy_plugin"
