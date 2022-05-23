@@ -1,9 +1,8 @@
 import logging.config
 import os
 import sys
-from pathlib import Path
 
-import is3_broker_rl
+from is3_broker_rl.utils import get_root_path
 
 
 def setup_logging() -> None:
@@ -26,7 +25,7 @@ def setup_logging() -> None:
                 "file": {
                     "class": "logging.FileHandler",
                     "formatter": "precise",
-                    "filename": Path(is3_broker_rl.__file__).parent.parent / os.getenv("LOG_FILE", "logs/main.log"),
+                    "filename": get_root_path() / os.getenv("LOG_FILE", "logs/main.log"),
                     "mode": "w",
                 },
             },
