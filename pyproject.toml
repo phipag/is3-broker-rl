@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "python-starter"
+name = "is3-broker-rl"
 version = "0.1.0"
 description = "A Python starter template with Poetry and tox."
 authors = ["Philipp Page <github@philipp-page.de>"]
@@ -27,4 +27,4 @@ line-length = 120
 profile = "black"
 
 [tool.mypy]
-files = "python_starter"
+files = "is3_broker_rl"
