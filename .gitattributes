@@ -1,0 +1,6 @@
+# Set the default behavior for all files.
+* text=auto
+
+# Python files are text
+*.py text
+*.pyx text

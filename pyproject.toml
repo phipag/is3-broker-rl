@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "python-starter"
+version = "0.1.0"
+description = "A Python starter template with Poetry and tox."
+authors = ["Philipp Page <github@philipp-page.de>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.0.0"
+tox = "^3.24.4"
+isort = "^5.10.1"
+black = "^22.1.0"
+flake8 = "^4.0.1"
+mypy = "^0.950"
+pytest-cov = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+files = "python_starter"
