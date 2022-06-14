@@ -1,19 +1,23 @@
-import logging
-
 import dotenv
 import ray
 from ray import serve
 
-from conf import setup_logging
+from is3_broker_rl.api.consumption_tariff_controller import ConsumptionTariffController
+from is3_broker_rl.conf import setup_logging
 
 
-def main():
-    setup_logging()
+def main() -> None:
     dotenv.load_dotenv(override=False)
-    log = logging.getLogger(__name__)
-    log.info("Starting Ray server ...")
-    ray.init()
+    setup_logging()
+
+    ray.init(address="auto", namespace="serve")
     serve.start()
+
+    ConsumptionTariffController.deploy()  # type: ignore
+
+    # We keep this script alive
+    while True:
+        continue
 
 
 if __name__ == "__main__":
