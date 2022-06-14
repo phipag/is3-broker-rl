@@ -9,7 +9,7 @@ from conf import setup_logging
 
 def main():
     setup_logging()
-    dotenv.load_dotenv()
+    dotenv.load_dotenv(override=False)
     log = logging.getLogger(__name__)
     log.info("Starting Ray server ...")
     ray.init()
