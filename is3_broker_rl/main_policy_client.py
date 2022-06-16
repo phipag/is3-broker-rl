@@ -1,3 +1,5 @@
+import logging
+
 import dotenv
 import ray
 from ray import serve
@@ -9,13 +11,15 @@ from is3_broker_rl.conf import setup_logging
 def main() -> None:
     dotenv.load_dotenv(override=False)
     setup_logging()
+    log = logging.getLogger(__name__)
 
-    ray.init(address="auto", namespace="serve")
+    ray.init(address="auto")
     serve.start()
 
+    log.info("Starting policy client API ...")
     ConsumptionTariffController.deploy()  # type: ignore
 
-    # We keep this script alive
+    # We keep this alive until terminated
     while True:
         continue
 
