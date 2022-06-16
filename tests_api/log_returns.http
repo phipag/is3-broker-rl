@@ -1,0 +1,9 @@
+POST http://localhost:8000/consumption-tariff/log-returns
+Content-Type: application/json
+
+{
+  "episode_id": "ddd85d5d0d1a4ed58b78ba88adf45b6a",
+  "reward": 2.0
+}
+
+###

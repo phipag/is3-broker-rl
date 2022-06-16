@@ -1,0 +1,17 @@
+POST http://localhost:8000/consumption-tariff/get-action
+Content-Type: application/json
+
+{
+  "episode_id": "ddd85d5d0d1a4ed58b78ba88adf45b6a",
+  "observation": {
+    "timeslot": 360,
+    "gameId": "PowerTAC GameId",
+    "gridImbalance": 123.0,
+    "ownImbalance": 112.2,
+    "customerCount": 123,
+    "customerNetDemand": 113.4,
+    "marketPosition": 0
+  }
+}
+
+###

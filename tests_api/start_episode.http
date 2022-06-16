@@ -1,0 +1,8 @@
+POST http://localhost:8000/consumption-tariff/start-episode
+Content-Type: application/json
+
+{
+  "training_enabled": true
+}
+
+###
