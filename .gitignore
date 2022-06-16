@@ -142,3 +142,6 @@ cython_debug/
 .atom/
 .idea/
 *.iml
+
+# Log contents
+logs/*
