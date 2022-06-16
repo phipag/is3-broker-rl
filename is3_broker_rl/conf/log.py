@@ -26,7 +26,7 @@ def setup_logging() -> None:
                     "class": "logging.FileHandler",
                     "formatter": "precise",
                     "filename": get_root_path() / os.getenv("LOG_FILE", "logs/main.log"),
-                    "mode": "w",
+                    "mode": "a",
                 },
             },
             "loggers": {},
