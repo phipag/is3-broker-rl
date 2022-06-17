@@ -1,4 +1,4 @@
-POST http://localhost:8000/consumption-tariff/get-action
+POST http://localhost:8000/consumption-tariff/end-episode
 Content-Type: application/json
 
 {

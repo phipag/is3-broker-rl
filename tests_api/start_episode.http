@@ -5,4 +5,6 @@ Content-Type: application/json
   "training_enabled": true
 }
 
+> {%client.global.set("episode_id", response.body.episode_id)%}
+
 ###
