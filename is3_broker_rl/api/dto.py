@@ -30,16 +30,18 @@ class Observation(BaseModel):
     gameId: str
     timeslot: int
     gridImbalance: float
-    ownImbalance: float
+    ownBalancingCosts: float
     customerCount: int
     customerNetDemand: float
     marketPosition: MarketPosition
+    wholesalePrice: float
 
     def to_feature_vector(self) -> List[Any]:
         return [
             self.gridImbalance,
-            self.ownImbalance,
+            self.ownBalancingCosts,
             self.customerNetDemand,
+            self.wholesalePrice,
             self.customerCount,
             self.marketPosition.value,
         ]
