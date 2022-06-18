@@ -58,9 +58,16 @@ class ConsumptionTariffController:
         header = False if os.path.exists(file) else True
         df.to_csv(file, mode="a", index=False, header=header)
 
-    # TODO: Implement this
     def _persist_reward(self, reward: float) -> None:
-        ...
+        self._check_episode_started()
+        os.makedirs(self._DATA_DIR, exist_ok=True)
+
+        df = pd.DataFrame({"episode_id": self._episode.episode_id, "reward": reward}, index=[0])
+        self._log.debug(df.iloc[0].to_json())
+
+        file = self._DATA_DIR / "consumption_reward.csv"
+        header = False if os.path.exists(file) else True
+        df.to_csv(file, mode="a", index=False, header=header)
 
     @fastapi_app.post("/start-episode", response_model=Episode)
     def start_episode(self, request: StartEpisodeRequest) -> Episode:
@@ -87,6 +94,9 @@ class ConsumptionTariffController:
     def log_returns(self, request: LogReturnsRequest) -> None:
         self._log.debug(f"Called log_returns with {request}.")
         self._check_episode_started()
+
+        self._log.debug("Persisting reward to .csv file ...")
+        self._persist_reward(request.reward)
 
         self._policy_client.log_returns(self._episode.episode_id, request.reward)
 
