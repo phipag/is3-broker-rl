@@ -52,12 +52,11 @@ class ConsumptionTariffController:
         os.makedirs(self._DATA_DIR, exist_ok=True)
 
         df = pd.DataFrame({"episode_id": self._episode.episode_id, **observation.dict(), "action": action}, index=[0])
-        self._log.debug(df.to_json())
+        self._log.debug(df.iloc[0].to_json())
 
         file = self._DATA_DIR / "consumption_action.csv"
-        file_mode = "a" if os.path.exists(file) else "w"
         header = False if os.path.exists(file) else True
-        df.to_csv(file, mode=file_mode, index=False, header=header)
+        df.to_csv(file, mode="a", index=False, header=header)
 
     # TODO: Implement this
     def _persist_reward(self, reward: float) -> None:
@@ -94,11 +93,7 @@ class ConsumptionTariffController:
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
         self._log.debug(f"Called end_episode with {request}.")
-        if self._episode is None:
-            raise HTTPException(
-                status_code=412,
-                detail="There is no active episode. "
-                "Start an episode (/start-episode) first before calling /end-episode.",
-            )
+        self._check_episode_started()
+
         self._policy_client.end_episode(self._episode.episode_id, request.observation.to_feature_vector())
         self._episode = None
