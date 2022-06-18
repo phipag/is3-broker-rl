@@ -5,6 +5,7 @@ import ray
 from ray import serve
 
 from is3_broker_rl.api.consumption_tariff_controller import ConsumptionTariffController
+from is3_broker_rl.api.wholesale_controller import WholesaleController
 from is3_broker_rl.conf import setup_logging
 
 
@@ -17,7 +18,8 @@ def main() -> None:
     serve.start()
 
     log.info("Starting policy client API ...")
-    ConsumptionTariffController.deploy()  # type: ignore
+    #ConsumptionTariffController.deploy()  # type: ignore
+    WholesaleController.deploy()  # type: ignore
 
     # We keep this alive until terminated
     while True:
