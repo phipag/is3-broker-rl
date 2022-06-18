@@ -1,4 +1,5 @@
 import logging
+import os
 
 import dotenv
 import ray
@@ -11,11 +12,11 @@ from is3_broker_rl.conf import setup_logging
 
 def main() -> None:
     dotenv.load_dotenv(override=False)
-    setup_logging()
+    setup_logging(log_filename="is3_consumption_rl.log")
     log = logging.getLogger(__name__)
+    log.debug(f"Policy client driver process using environment variables: {os.environ}")
 
     ray.init(address="auto")
-    serve.start()
 
     log.info("Starting policy client API ...")
     #ConsumptionTariffController.deploy()  # type: ignore
