@@ -6,6 +6,7 @@ from typing import Optional
 
 import gym
 import numpy as np
+from ray.rllib.agents import DefaultCallbacks
 from ray.rllib.env import PolicyServerInput
 from ray.rllib.offline import IOContext
 from ray.tune import tune
@@ -47,6 +48,7 @@ def start_policy_server() -> None:
         "action_space": gym.spaces.Discrete(5),
         # Use the `PolicyServerInput` to generate experiences.
         "input": _input,
+        "callbacks": DefaultCallbacks,
         # Use n worker processes to listen on different ports.
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
@@ -61,8 +63,8 @@ def start_policy_server() -> None:
         {
             # Start learning immediately
             "learning_starts": 0,
-            # In combination with checkpoint_freq=1 this will create a checkpoint every 24 timesteps
-            "timesteps_per_iteration": 24,
+            # In combination with checkpoint_freq=1 this will create a checkpoint every 2 timesteps
+            "timesteps_per_iteration": 2,
             # 1-step Q-Learning
             "n_step": 1,
         }
