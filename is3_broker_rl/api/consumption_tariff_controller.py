@@ -60,11 +60,19 @@ class ConsumptionTariffController:
         header = False if os.path.exists(file) else True
         df.to_csv(file, mode="a", index=False, header=header)
 
-    def _persist_reward(self, reward: float) -> None:
+    def _persist_reward(self, reward: float, observation: Observation, last_action: Optional[Action]) -> None:
         self._check_episode_started()
         os.makedirs(self._DATA_DIR, exist_ok=True)
 
-        df = pd.DataFrame({"episode_id": self._episode.episode_id, "reward": reward}, index=[0])
+        df = pd.DataFrame(
+            {
+                "episode_id": self._episode.episode_id,
+                "reward": reward,
+                **observation.dict(),
+                "last_action": last_action,
+            },
+            index=[0],
+        )
         self._log.debug(df.iloc[0].to_json())
 
         file = self._DATA_DIR / "consumption_reward.csv"
@@ -98,7 +106,7 @@ class ConsumptionTariffController:
         self._check_episode_started()
 
         self._log.debug("Persisting reward to .csv file ...")
-        self._persist_reward(request.reward)
+        self._persist_reward(request.reward, request.observation, request.last_action)
 
         self._policy_client.log_returns(self._episode.episode_id, request.reward)
 

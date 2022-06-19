@@ -2,7 +2,7 @@
 This file contains the Data Transfer Objects (DTOs) used for API communication with the Java broker.
 """
 import enum
-from typing import Any, List
+from typing import Any, List, Optional
 
 from pydantic import BaseModel
 
@@ -63,6 +63,8 @@ class EndEpisodeRequest(BaseModel):
 class LogReturnsRequest(BaseModel):
     episode_id: str
     reward: float
+    observation: Observation
+    last_action: Optional[Action]
 
 
 class GetActionRequest(BaseModel):
