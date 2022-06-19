@@ -38,7 +38,9 @@ class ConsumptionTariffController:
         self._log.debug(f"Policy client actor using environment variables: {os.environ}")
         self._DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "data/"))
 
-        self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="local")
+        # We set inference_mode="remote" to guarantee on-policy behavior
+        # (https://discuss.ray.io/t/externalenv-vs-external-application-clients/2371/2?u=phipag)
+        self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
 
     def _check_episode_started(self) -> None:

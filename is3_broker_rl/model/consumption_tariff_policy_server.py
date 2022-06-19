@@ -51,8 +51,6 @@ def start_policy_server() -> None:
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
         "input_evaluation": [],
-        # Create a "chatty" client/server or not.
-        "callbacks": None,
         # DL framework to use.
         "framework": "tf2",
         "log_level": "DEBUG",
