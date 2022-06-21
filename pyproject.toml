@@ -12,8 +12,6 @@ tensorflow = { version = "^2.9.0", markers = "sys_platform == 'win32' or sys_pla
 tensorflow-macos = { version = "^2.9.0", markers = "sys_platform == 'darwin' and platform_machine == 'arm64'" }
 python-dotenv = "^0.20.0"
 gym = "^0.21.0"
-matplotlib = "^3.5.2"
-seaborn = "^0.11.2"
 numpy = "^1.22.4"
 pandas = "^1.4.2"
 
@@ -26,6 +24,10 @@ flake8 = "^4.0.1"
 mypy = "^0.961"
 pytest-cov = "^3.0.0"
 tensorboard = "^2.9.0"
+matplotlib = "^3.5.2"
+seaborn = "^0.11.2"
+jupyterlab = "^3.4.3"
+jupyterlab-code-formatter = "^1.4.11"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
