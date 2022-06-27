@@ -2,7 +2,7 @@
 This file contains the Data Transfer Objects (DTOs) used for API communication with the Java broker.
 """
 import enum
-from typing import Any, List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -36,7 +36,7 @@ class Observation(BaseModel):
     marketPosition: MarketPosition
     wholesalePrice: float
 
-    def to_feature_vector(self) -> List[Any]:
+    def to_feature_vector(self) -> List[Union[float, int]]:
         return [
             self.gridImbalance,
             self.ownBalancingCosts,
