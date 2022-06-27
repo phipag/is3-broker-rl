@@ -28,6 +28,7 @@ matplotlib = "^3.5.2"
 seaborn = "^0.11.2"
 jupyterlab = "^3.4.3"
 jupyterlab-code-formatter = "^1.4.11"
+typing-extensions = "^4.2.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

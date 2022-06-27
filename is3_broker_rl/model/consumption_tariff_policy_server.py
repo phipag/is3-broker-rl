@@ -2,7 +2,7 @@
 # the respective worker).
 import logging
 import os
-from typing import Optional
+from typing import Any
 
 import gym
 import numpy as np
@@ -16,8 +16,8 @@ SERVER_BASE_PORT = 9900
 N_WORKERS = 0
 
 
-def _input(ioctx: IOContext) -> Optional[PolicyServerInput]:
-    if ioctx.worker_index > 0 or ioctx.worker.num_workers == 0:
+def _input(ioctx: IOContext) -> Any:
+    if ioctx.worker_index > 0 or ioctx.worker and ioctx.worker.num_workers == 0:
         return PolicyServerInput(
             ioctx,
             SERVER_ADDRESS,
