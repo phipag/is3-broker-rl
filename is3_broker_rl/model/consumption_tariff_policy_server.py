@@ -30,15 +30,17 @@ def _input(ioctx: IOContext) -> Any:
 def start_policy_server() -> None:
     config = {
         "env": None,
-        # gridImbalance, ownBalancingCosts, customerNetDemand, wholesalePrice, customerCount, marketPosition
+        # gridImbalance, ownBalancingCosts, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
+        # marketPosition
         "observation_space": gym.spaces.Box(
-            low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0]),
+            low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0, 0]),
             high=np.array(
                 [
                     np.finfo(np.float32).max,
                     np.finfo(np.float32).max,
                     np.finfo(np.float32).max,
-                    np.finfo(np.float32).max,
+                    200,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
+                    200,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
                     1e6,
                     4,
                 ]
@@ -72,7 +74,7 @@ def start_policy_server() -> None:
     )
     config["model"] = {
         "fcnet_hiddens": [64],
-        "fcnet_activation": "linear",
+        "fcnet_activation": "relu",
     }
 
     log = logging.getLogger(__name__)
