@@ -64,8 +64,8 @@ def start_policy_server() -> None:
             # Start learning immediately
             "learning_starts": 0,
             # In combination with checkpoint_freq=1 this will create a checkpoint every 2 timesteps
-            "timesteps_per_iteration": 2,
-            "train_batch_size": 2,
+            "timesteps_per_iteration": 16,
+            "train_batch_size": 16,
             # 1-step Q-Learning
             "n_step": 1,
         }
