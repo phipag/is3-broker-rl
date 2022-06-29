@@ -95,6 +95,7 @@ def start_policy_server():
             # Set to INFO so we'll see the server's actual address:port.
             "log_level": "DEBUG",
             "train_batch_size": 2,
+            "timesteps_per_iteration": 512,
         }
 
         config.update(
