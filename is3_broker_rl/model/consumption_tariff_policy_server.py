@@ -86,7 +86,7 @@ def start_policy_server() -> None:
         checkpoint_at_end=True,
         checkpoint_freq=1,
         verbose=2,
-        local_dir=os.environ.get("LOG_DIR", "logs/"),
+        local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
         name="DQN_Consumption_Trial2",
     )
