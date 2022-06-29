@@ -3,7 +3,17 @@ Content-Type: application/json
 
 {
   "episode_id": "{{episode_id}}",
-  "reward": 2.0
+  "reward": 2.0,
+  "observation": {
+    "timeslot": 360,
+    "gameId": "PowerTAC GameId",
+    "gridImbalance": 123.0,
+    "ownBalancingCosts": 112.2,
+    "customerCount": 123,
+    "customerNetDemand": 113.4,
+    "wholesalePrice": 0.51,
+    "marketPosition": 0
+  }
 }
 
 ###

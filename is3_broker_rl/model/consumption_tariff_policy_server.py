@@ -2,10 +2,11 @@
 # the respective worker).
 import logging
 import os
-from typing import Optional
+from typing import Any
 
 import gym
 import numpy as np
+from ray.rllib.agents import DefaultCallbacks
 from ray.rllib.env import PolicyServerInput
 from ray.rllib.offline import IOContext
 from ray.tune import tune
@@ -15,8 +16,8 @@ SERVER_BASE_PORT = 9900
 N_WORKERS = 0
 
 
-def _input(ioctx: IOContext) -> Optional[PolicyServerInput]:
-    if ioctx.worker_index > 0 or ioctx.worker.num_workers == 0:
+def _input(ioctx: IOContext) -> Any:
+    if ioctx.worker_index > 0 or ioctx.worker and ioctx.worker.num_workers == 0:
         return PolicyServerInput(
             ioctx,
             SERVER_ADDRESS,
@@ -29,15 +30,17 @@ def _input(ioctx: IOContext) -> Optional[PolicyServerInput]:
 def start_policy_server() -> None:
     config = {
         "env": None,
-        # gridImbalance, ownBalancingCosts, customerNetDemand, wholesalePrice, customerCount, marketPosition
+        # gridImbalance, ownBalancingCosts, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
+        # marketPosition
         "observation_space": gym.spaces.Box(
-            low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0]),
+            low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0, 0]),
             high=np.array(
                 [
                     np.finfo(np.float32).max,
                     np.finfo(np.float32).max,
                     np.finfo(np.float32).max,
-                    np.finfo(np.float32).max,
+                    200,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
+                    200,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
                     1e6,
                     4,
                 ]
@@ -47,12 +50,11 @@ def start_policy_server() -> None:
         "action_space": gym.spaces.Discrete(5),
         # Use the `PolicyServerInput` to generate experiences.
         "input": _input,
+        "callbacks": DefaultCallbacks,
         # Use n worker processes to listen on different ports.
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
         "input_evaluation": [],
-        # Create a "chatty" client/server or not.
-        "callbacks": None,
         # DL framework to use.
         "framework": "tf2",
         "log_level": "DEBUG",
@@ -63,15 +65,16 @@ def start_policy_server() -> None:
         {
             # Start learning immediately
             "learning_starts": 0,
-            # In combination with checkpoint_freq=1 this will create a checkpoint every 24 timesteps
-            "timesteps_per_iteration": 24,
+            # In combination with checkpoint_freq=1 this will create a checkpoint every 2 timesteps
+            "timesteps_per_iteration": 16,
+            "train_batch_size": 16,
             # 1-step Q-Learning
             "n_step": 1,
         }
     )
     config["model"] = {
         "fcnet_hiddens": [64],
-        "fcnet_activation": "linear",
+        "fcnet_activation": "relu",
     }
 
     log = logging.getLogger(__name__)
@@ -83,7 +86,7 @@ def start_policy_server() -> None:
         checkpoint_at_end=True,
         checkpoint_freq=1,
         verbose=2,
-        local_dir=os.environ.get("LOG_DIR", "logs/"),
+        local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name="DQN_Consumption_Trial1",
+        name="DQN_Consumption_Trial2",
     )
