@@ -88,5 +88,5 @@ def start_policy_server() -> None:
         verbose=2,
         local_dir=os.environ.get("LOG_DIR", "logs/"),
         log_to_file=True,
-        name="DQN_Consumption_Trial1",
+        name="DQN_Consumption_Trial2",
     )
