@@ -1,14 +1,13 @@
 import json
 import logging
 from typing import Optional
-
 import dotenv
 import numpy as np
 from fastapi import HTTPException
 from ray import serve
 from ray.rllib.env import PolicyClient
 from starlette.requests import Request
-
+import os
 from is3_broker_rl.api.fastapi_app import fastapi_app
 from is3_broker_rl.api.wholesale_dto import (
     EndEpisodeRequest,
@@ -26,6 +25,7 @@ from is3_broker_rl.model.wholesale_policy_server import SERVER_ADDRESS, SERVER_B
 @serve.ingress(fastapi_app)
 class WholesaleController:
     last_obs: np.ndarray
+
 
     def __init__(self) -> None:
         # This runs in a Ray actor worker process, so we have to initialize the logging again
@@ -59,14 +59,12 @@ class WholesaleController:
 
     @fastapi_app.post("/get-action")
     def get_action(self, request: GetActionRequest):
-        # self._log.debug(f"Called get_action with {request}. Feature vector: {feature_vector}.")
+        
         self._check_episode_started()
         self.finished_observation = False
         # TODO: Preprocess obs:
         action = self._policy_client.get_action(self._episode.episode_id, self.last_obs.to_feature_vector() / 1000)
         self._log.info(f"Algorithm predicted action={action}. Persisting to .csv file ...")
-        # TODO: Implement persistence to .csv file
-        # self._log.info(str(action[0])+":"+ str(action[1]))
         return_string = ""
 
         for act in action:
@@ -76,13 +74,15 @@ class WholesaleController:
         # except Exception as e:
         #    self._log.error(f"Error {e} during get-action")
         self._log.info(f"Return String: {return_string}")
+        self._persist_action(self.last_obs.to_feature_vector(), action)
         return return_string
 
     @fastapi_app.post("/log-returns")
     def log_returns(self, request: LogReturnsRequest) -> None:
         self._log.debug(f"Called log_returns with {request.reward}.")
         self._check_episode_started()
-
+        
+        self._persist_reward(request.reward)
         self._policy_client.log_returns(self._episode.episode_id, request.reward)
 
     @fastapi_app.post("/end-episode")
@@ -123,6 +123,39 @@ class WholesaleController:
         except Exception as e:
             self._log.error(f"Observation building error: {e}")
 
-    @fastapi_app.post("/test")
-    def test(self, request: Request):
-        self._log.info("Test")
+
+
+    def _persist_action(self, observation: Observation, action: Action) -> None:
+        self._check_episode_started()
+        assert isinstance(self._episode, Episode)  # Make mypy happy
+        os.makedirs(self._DATA_DIR, exist_ok=True)
+        self.last_action = action
+        df = pd.DataFrame({"episode_id": self._episode.episode_id, **observation.dict(), "action": action}, index=[0])
+        self._log.debug(df.iloc[0].to_json())
+
+        file = self._DATA_DIR / "wholesale_action.csv"
+        header = False if os.path.exists(file) else True
+        df.to_csv(file, mode="a", index=False, header=header)
+
+
+    def _persist_reward(self, reward: float) -> None:
+        self._check_episode_started()
+        assert isinstance(self._episode, Episode)  # Make mypy happy
+        observation = self.last_obs.to_feature_vector()
+        action = self.last_action
+        os.makedirs(self._DATA_DIR, exist_ok=True)
+
+        df = pd.DataFrame(
+            {
+                "episode_id": self._episode.episode_id,
+                "reward": reward,
+                "observation": observation,
+                "last_action": action,
+            },
+            index=[0],
+        )
+        self._log.debug(df.iloc[0].to_json())
+
+        file = self._DATA_DIR / "wholesale_reward.csv"
+        header = False if os.path.exists(file) else True
+        df.to_csv(file, mode="a", index=False, header=header)
