@@ -1,10 +1,13 @@
+from cmath import e
 import json
 import logging
 from typing import Optional
 import dotenv
 import numpy as np
 from fastapi import HTTPException
+import pandas as pd
 from ray import serve
+from pathlib import Path
 from ray.rllib.env import PolicyClient
 from starlette.requests import Request
 import os
@@ -29,11 +32,13 @@ class WholesaleController:
 
     def __init__(self) -> None:
         # This runs in a Ray actor worker process, so we have to initialize the logging again
+        self.last_action_str = ""
         dotenv.load_dotenv(override=False)
         setup_logging("is3_wholesale_rl.log")
         self._log = logging.getLogger(__name__)
         self.obs_dict = {}
-
+        self._log.debug(f"Policy client actor using environment variables: {os.environ}")
+        self._DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "data/"))
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
@@ -74,7 +79,7 @@ class WholesaleController:
         # except Exception as e:
         #    self._log.error(f"Error {e} during get-action")
         self._log.info(f"Return String: {return_string}")
-        self._persist_action(self.last_obs.to_feature_vector(), action)
+        self._persist_action(return_string)
         return return_string
 
     @fastapi_app.post("/log-returns")
@@ -89,16 +94,16 @@ class WholesaleController:
     def end_episode(self, request: EndEpisodeRequest) -> None:
         self._log.debug(f"Called end_episode with {request}.")
         self.finished_observation = False
-        self._policy_client.end_episode(self._episode.episode_id, request.observation.to_feature_vector())
+        self._policy_client.end_episode(self._episode.episode_id, self.last_obs.to_feature_vector())
+        self.last_action_str = ""
+        self.last_obs = None
+
 
     @fastapi_app.post("/build_observation")
     def build_observation(self, request: Request) -> None:
         try:
             obs = request.query_params["obs"]
             obs = np.array(json.loads(obs))
-            shapeof = np.shape(obs)
-            typeof = type(obs)
-            self._log.debug(f"Obs: {shapeof}, type {typeof}")
             timeslot = request.query_params["timeslot"]
             game_id = request.query_params["game_id"]
             self._log.info("Observation received")
@@ -125,24 +130,28 @@ class WholesaleController:
 
 
 
-    def _persist_action(self, observation: Observation, action: Action) -> None:
-        self._check_episode_started()
-        assert isinstance(self._episode, Episode)  # Make mypy happy
-        os.makedirs(self._DATA_DIR, exist_ok=True)
-        self.last_action = action
-        df = pd.DataFrame({"episode_id": self._episode.episode_id, **observation.dict(), "action": action}, index=[0])
-        self._log.debug(df.iloc[0].to_json())
+    def _persist_action(self, action) -> None:
+        try:
+            self._check_episode_started()
+            assert isinstance(self._episode, Episode)  # Make mypy happy
+            os.makedirs(self._DATA_DIR, exist_ok=True)
+            self.last_action_str = action
+            observation = self.last_obs
+            df = pd.DataFrame({"episode_id": self._episode.episode_id, "observation": observation.json(), "action": action}, index=[0])
+            self._log.debug(df.iloc[0].to_json())
 
-        file = self._DATA_DIR / "wholesale_action.csv"
-        header = False if os.path.exists(file) else True
-        df.to_csv(file, mode="a", index=False, header=header)
+            file = self._DATA_DIR / "wholesale_action.csv"
+            header = False if os.path.exists(file) else True
+            df.to_csv(file, mode="a", index=False, header=header)
+        except Exception as e:
+            self._log.debug(f"Persist action error {e}", exc_info=True)
 
 
     def _persist_reward(self, reward: float) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
-        observation = self.last_obs.to_feature_vector()
-        action = self.last_action
+        observation = self.last_obs.json()
+        action = self.last_action_str
         os.makedirs(self._DATA_DIR, exist_ok=True)
 
         df = pd.DataFrame(
