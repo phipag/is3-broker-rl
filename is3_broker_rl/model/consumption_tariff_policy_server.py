@@ -65,8 +65,11 @@ def start_policy_server() -> None:
         {
             # Start learning immediately
             "learning_starts": 0,
-            # In combination with checkpoint_freq=1 this will create a checkpoint every 2 timesteps
-            "timesteps_per_iteration": 16,
+            # Set this to a value larger or equal to the get_action calls per episode
+            # (this makes sure that the episode_reward etc. is reported in tensorboard).
+            # See org.powertac.is3broker.tariff.consumption.offerHorizon
+            #     and org.powertac.is3broker.tariff.consumption.episodeLength
+            "timesteps_per_iteration": 19,
             "train_batch_size": 16,
             # 1-step Q-Learning
             "n_step": 1,
@@ -89,4 +92,5 @@ def start_policy_server() -> None:
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
         name="DQN_Consumption_Trial2",
+        resume="AUTO",  # Will load the latest checkpoint from the local experiment directory or start a new one
     )
