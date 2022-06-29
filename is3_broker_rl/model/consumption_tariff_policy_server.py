@@ -69,7 +69,7 @@ def start_policy_server() -> None:
             # (this makes sure that the episode_reward etc. is reported in tensorboard).
             # See org.powertac.is3broker.tariff.consumption.offerHorizon
             #     and org.powertac.is3broker.tariff.consumption.episodeLength
-            "timesteps_per_iteration": 19,
+            "timesteps_per_iteration": 36,
             "train_batch_size": 16,
             # 1-step Q-Learning
             "n_step": 1,
