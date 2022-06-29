@@ -17,7 +17,7 @@ def main() -> None:
     log.debug(f"Policy client driver process using environment variables: {os.environ}")
 
     ray.init(address="auto")
-
+    serve.start()
     log.info("Starting policy client API ...")
     #ConsumptionTariffController.deploy()  # type: ignore
     WholesaleController.deploy()  # type: ignore

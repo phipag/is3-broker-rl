@@ -107,6 +107,7 @@ def start_policy_server():
             "framework": "tf2",
             # Set to INFO so we'll see the server's actual address:port.
             "log_level": "DEBUG",
+            "train_batch_size": 2,
         }
 
         config.update({
@@ -115,14 +116,13 @@ def start_policy_server():
             "use_gae" : True,
             "lambda" : 1.0,
             "kl_coeff" : 0.2,
-            "sgd_minibatch_size" : 128,
+            "sgd_minibatch_size" : 1,
             "num_sgd_iter" : 30,
             "shuffle_sequences" : True,
-            "vf_loss_coeff" : 1.0,
-            "entropy_coeff" : 0.0,
+            "vf_loss_coeff" : 0.5,
+            "entropy_coeff" : 0.2,
             "entropy_coeff_schedule" : None,
             "clip_param" : 0.3,
-            "vf_loss_coeff": 10.0, # TODO
             "grad_clip" : None,
             "kl_target" : 0.01,
         }
