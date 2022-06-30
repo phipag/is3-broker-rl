@@ -27,7 +27,7 @@ class Env_config:
 
         l_bounds.append(np.array([-10] * 24))  # p_grid_imbalance = 0
         h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-100] * 24))  # p_customer_prosumption = 0
+        l_bounds.append(np.array([-10] * 24))  # p_customer_prosumption = 0
         h_bounds.append(np.array([10] * 24))
         l_bounds.append(np.array([-10] * 24))  # p_wholesale_price = 0
         h_bounds.append(np.array([10] * 24))

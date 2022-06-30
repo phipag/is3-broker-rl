@@ -96,6 +96,7 @@ def start_policy_server():
             "log_level": "DEBUG",
             "train_batch_size": 2,
             "timesteps_per_iteration": 512,
+            "observation_filter": "MeanStdFilter",
         }
 
         config.update(

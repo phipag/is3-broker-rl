@@ -39,14 +39,15 @@ def start_policy_server() -> None:
                     np.finfo(np.float32).max,
                     np.finfo(np.float32).max,
                     np.finfo(np.float32).max,
-                    200,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
-                    200,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
+                    1000,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
+                    1000,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
                     1e6,
                     4,
                 ]
             ),
             dtype=np.float32,
         ),
+        "observation_filter": "MeanStdFilter",
         "action_space": gym.spaces.Discrete(5),
         # Use the `PolicyServerInput` to generate experiences.
         "input": _input,
