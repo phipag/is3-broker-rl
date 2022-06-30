@@ -136,6 +136,6 @@ def start_policy_server():
             verbose=2,
             local_dir=os.environ.get("DATA_DIR", "logs/"),
             log_to_file=True,
-            name="wholesale_PPO_Test",
+            name="wholesale_PPO_Test1",
             resume="AUTO",
         )
