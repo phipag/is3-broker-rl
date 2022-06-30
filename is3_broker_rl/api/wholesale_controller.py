@@ -1,6 +1,7 @@
 from cmath import e
 import json
 import logging
+import pwd
 from typing import Optional
 import dotenv
 import numpy as np
@@ -68,7 +69,10 @@ class WholesaleController:
         self._check_episode_started()
         self.finished_observation = False
         # TODO: Preprocess obs:
-        action = self._policy_client.get_action(self._episode.episode_id, self.last_obs.to_feature_vector() / 1000)
+        obs = self._standardize_observation(self.last_obs)
+        
+        action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
+        action = action * 1000
         self._log.info(f"Algorithm predicted action={action}. Persisting to .csv file ...")
         return_string = ""
 
@@ -84,11 +88,12 @@ class WholesaleController:
 
     @fastapi_app.post("/log-returns")
     def log_returns(self, request: LogReturnsRequest) -> None:
-        self._log.debug(f"Called log_returns with {request.reward}.")
+        reward = request.reward /100000
+        self._log.info(f"Called log_returns with {request.reward}.")
         self._check_episode_started()
         
-        self._persist_reward(request.reward)
-        self._policy_client.log_returns(self._episode.episode_id, request.reward)
+        self._persist_reward(reward)
+        self._policy_client.log_returns(self._episode.episode_id, reward)
 
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
@@ -168,3 +173,100 @@ class WholesaleController:
         file = self._DATA_DIR / "wholesale_reward.csv"
         header = False if os.path.exists(file) else True
         df.to_csv(file, mode="a", index=False, header=header)
+
+    def _standardize_observation(self, obs: Observation):
+        mean = {
+            0: 13.63367803668246,  #temperature
+            1: 2.8749491311183646,  # windspeed
+            2: 0.3507285267995091,  # cloudCover
+            3: -5562.860502868995,  # gridImbalance
+            4: 67.94300403314354,   # wholesale_price t0- t23
+            5: 52.525031707832994,
+            6: 52.88933002824563,
+            7: 53.6404562916743,
+            8: 54.242977901342435,
+            9: 54.64121266757686,
+            10: 55.68414875394494,
+            11: 55.95338863257504,
+            12: 56.500170033661576,
+            13: 56.86790772811706,
+            14: 57.26890408075484,
+            15: 57.546169037693495,
+            16: 58.32161144972453,
+            17: 58.325472360126476,
+            18: 58.860712114852674,
+            19: 58.95012248169707,
+            20: 58.56377617684579,
+            21: 57.7975016266282,
+            22: 56.76283333858017,
+            23: 55.84977154330559,
+            24: 54.361149855941854,
+            25: 53.6202408477646,
+            26: 53.19566381723961,
+            27: 88.24426167683156,
+            28: -6204.5187837914200000, # enc_customer_prosumption
+        }
+
+        std = {
+            0: 12.991492001148853,
+            1: 1.9648730336774647,
+            2: 0.3178986946278265,
+            3: 21020.252493759675,
+            4: 97.7488901733044,
+            5: 81.90114882212681,
+            6: 80.93475336382566,
+            7: 81.15237969890913,
+            8: 81.0773639240314,
+            9: 81.15059495302327,
+            10: 81.56561194539107,
+            11: 82.21001272330156,
+            12: 82.68724464729176,
+            13: 83.08028951245949,
+            14: 83.35342675797074,
+            15: 83.33694606058906,
+            16: 83.41922174065809,
+            17: 83.64445398567099,
+            18: 83.52051975557954,
+            19: 83.4591317857155,
+            20: 82.94899235919999,
+            21: 82.21190741907145,
+            22: 81.76050603123286,
+            23: 80.62699046407442,
+            24: 80.07524192939118,
+            25: 79.12346949638426,
+            26: 78.50764659516479,
+            27: 102.93501402012687,
+            28: 10273.1983911710890000, # enc_customer_prosumption
+        }
+        try:
+            wholesale_price = []
+            i = 4
+            for x in obs.p_wholesale_price:
+                
+                wholesale_price.append((x - mean[i]) / std[i])
+                i+=1
+
+            self._log.debug(f"Scaled wholesale: {wholesale_price}")
+
+            scaled_obs = Observation(
+                gameId=obs.gameId,
+                timeslot=obs.timeslot,
+                p_temperature=[((x - mean[0]) / std[0]) for x in obs.p_temperature],
+                p_wind_speed=[((x - mean[1]) / std[1]) for x in obs.p_wind_speed],
+                p_cloud_cover=[((x - mean[2]) / std[2]) for x in obs.p_cloud_cover],
+                p_grid_imbalance=[((x - mean[3]) / std[3]) for x in obs.p_grid_imbalance],
+                p_customer_prosumption=[((x - mean[28]) / std[28]) for x in obs.p_customer_prosumption],
+                p_wholesale_price=wholesale_price,
+                hour_of_day= obs.hour_of_day,
+                day_of_week=obs.day_of_week,
+
+            )
+
+            self._log.debug(f"Scaled Obs: {scaled_obs}")
+        except Exception as e:
+            self._log.debug(f"Scaling obs error {e}", exc_info=True)
+
+
+        return scaled_obs
+
+    
