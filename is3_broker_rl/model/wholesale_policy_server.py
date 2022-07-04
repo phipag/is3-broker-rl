@@ -190,7 +190,7 @@ def start_policy_server():
 
             # === Replay buffer ===
             # Size of the replay buffer (in time steps).
-            
+
             "replay_buffer_config": {
                 "_enable_replay_buffer_api": True,
                 "type": "MultiAgentReplayBuffer",
@@ -299,6 +299,6 @@ def start_policy_server():
         verbose=2,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_Test1",
+        name=f"{trainer_name}_Test2",
         resume="AUTO",
     )
