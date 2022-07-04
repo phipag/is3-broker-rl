@@ -1,6 +1,7 @@
 from cmath import e
 import json
 import logging
+from posixpath import split
 import pwd
 from typing import Optional
 import dotenv
@@ -65,26 +66,50 @@ class WholesaleController:
 
     @fastapi_app.post("/get-action")
     def get_action(self, request: GetActionRequest):
-        
-        self._check_episode_started()
-        self.finished_observation = False
-        # TODO: Preprocess obs:
-        obs = self._standardize_observation(self.last_obs)
-        
-        action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
-        action = action * 1000
-        self._log.info(f"Algorithm predicted action={action}. Persisting to .csv file ...")
-        return_string = ""
+        try:
+            self._log.error("test1")
+            self._check_episode_started()
+            self.finished_observation = False
+            self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
+            self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
 
-        for act in action:
-            act1 = str(act)
-            # self._log.debug(f"{act1}")
-            return_string = return_string + ";" + act1
-        # except Exception as e:
-        #    self._log.error(f"Error {e} during get-action")
-        self._log.info(f"Return String: {return_string}")
-        self._persist_action(return_string)
-        return return_string
+            # TODO: Preprocess obs:
+            obs = self._standardize_observation(self.last_obs)
+            self._log.error("test1")
+            action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
+            # Transform the action space from [-1:1] to [-100:100] for the price. 
+            # And transforms the action space from [0:1000] for the energy. 
+            # The sign is 
+            #  See powertac game specification.
+            action_scaled = np.zeros((48))
+            for i in range(48):
+                if i %2 == 0:
+                    action_scaled[i] = ((action[i] * 500))
+                    temp_action = action_scaled[i]
+                else:
+                    if temp_action < 0:
+                        sign = 1
+                    else:
+                        sign = -1
+                        action_scaled[i] = ((action[i] * 50)+50) * sign
+
+            self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
+            return_string = ""
+
+            for act in action_scaled:
+                act1 = str(act)
+                # self._log.debug(f"{act1}")
+                return_string = return_string + ";" + act1
+            # except Exception as e:
+            #    self._log.error(f"Error {e} during get-action")
+            self._log.info(f"Return String: {return_string}")
+            self._persist_action(return_string)
+            return return_string
+        except Exception as e:
+            self._log.error(f"Get Action error: {e}", exc_info=True)
+            return ""
+
+
 
     @fastapi_app.post("/log-returns")
     def log_returns(self, request: LogReturnsRequest) -> None:
@@ -94,6 +119,7 @@ class WholesaleController:
         
         self._persist_reward(reward)
         self._policy_client.log_returns(self._episode.episode_id, reward)
+
 
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
@@ -122,6 +148,8 @@ class WholesaleController:
                 p_cloud_cover=obs[72:96].tolist(),
                 p_temperature=obs[96:120].tolist(),
                 p_wind_speed=obs[120:144].tolist(),
+                cleared_orders_price=[0]*24,  # Inputs empty values. These will be filled later. 
+                cleared_orders_energy=[0]*24,  # Inputs empty values. These will be filled later.
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
             )
@@ -131,7 +159,7 @@ class WholesaleController:
             # self._log.debug(f"Testing feature vector: {feature_vector_test}")
             self.finished_observation = True
         except Exception as e:
-            self._log.error(f"Observation building error: {e}")
+            self._log.error(f"Observation building error: {e}", exc_info=True)
 
 
 
@@ -259,6 +287,8 @@ class WholesaleController:
                 p_wholesale_price=wholesale_price,
                 hour_of_day= obs.hour_of_day,
                 day_of_week=obs.day_of_week,
+                cleared_orders_energy=obs.cleared_orders_energy,
+                cleared_orders_price=obs.cleared_orders_price
 
             )
 
@@ -268,5 +298,19 @@ class WholesaleController:
 
 
         return scaled_obs
+
+
+
+    def string_to_list(self, input_string: str, delimeter = ";"):
+        splits = input_string.split(delimeter)
+        self._log.info(f"Splits {splits}")
+        return_list = []
+        for value in splits:
+            if value != "":
+                return_list.append(float(value))
+
+        return return_list
+
+
 
     

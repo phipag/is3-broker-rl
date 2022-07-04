@@ -25,22 +25,26 @@ class Env_config:
         # l_bounds.append(np.array([-np.inf]*7))      # day of the start with dummy
         # h_bounds.append(np.array([np.inf]*7))
 
-        l_bounds.append(np.array([-10] * 24))  # p_grid_imbalance = 0
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 24))  # p_customer_prosumption = 0
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 24))  # p_wholesale_price = 0
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 24))  # p_cloud_cover = 0
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 24))  # p_temperature = 0
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 24))  # p_wind_speed = 0
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 24))  # hour of the start with dummy.
-        h_bounds.append(np.array([10] * 24))
-        l_bounds.append(np.array([-10] * 7))  # day of the start with dummy
-        h_bounds.append(np.array([10] * 7))
+        l_bounds.append(np.array([-1000] * 24))  # p_grid_imbalance = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # p_customer_prosumption = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # p_wholesale_price = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # p_cloud_cover = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # p_temperature = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # p_wind_speed = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # cleared_orders_price = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # cleared_orders_energy = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # hour of the start with dummy.
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 7))  # day of the start with dummy
+        h_bounds.append(np.array([1000] * 7))
 
         l_bound_total = np.array([])
         for j in l_bounds:
