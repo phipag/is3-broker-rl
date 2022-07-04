@@ -1,15 +1,14 @@
-# `InputReader` generator (returns None if no input reader is needed on
-# the respective worker).
 import logging
 import os
 from typing import Any
 
 import gym
 import numpy as np
-from ray.rllib.agents import DefaultCallbacks
 from ray.rllib.env import PolicyServerInput
 from ray.rllib.offline import IOContext
 from ray.tune import tune
+
+from is3_broker_rl.model.normalize_reward_callback import NormalizeRewardCallback
 
 SERVER_ADDRESS = "localhost"
 SERVER_BASE_PORT = 9900
@@ -51,7 +50,7 @@ def start_policy_server() -> None:
         "action_space": gym.spaces.Discrete(5),
         # Use the `PolicyServerInput` to generate experiences.
         "input": _input,
-        "callbacks": DefaultCallbacks,
+        "callbacks": NormalizeRewardCallback,
         # Use n worker processes to listen on different ports.
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
@@ -64,15 +63,10 @@ def start_policy_server() -> None:
     # For DQN
     config.update(
         {
-            # Start learning immediately
-            "learning_starts": 0,
-            # Set this to a value larger or equal to the get_action calls per episode
-            # (this makes sure that the episode_reward etc. is reported in tensorboard).
-            # See org.powertac.is3broker.tariff.consumption.offerHorizon
-            #     and org.powertac.is3broker.tariff.consumption.episodeLength
-            "timesteps_per_iteration": 36,
+            "replay_buffer_config": {"learning_starts": 0},
+            "timesteps_per_iteration": 16,
+            "rollout_fragment_length": 16,
             "train_batch_size": 16,
-            # 1-step Q-Learning
             "n_step": 1,
         }
     )
