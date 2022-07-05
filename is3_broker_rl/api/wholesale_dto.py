@@ -59,9 +59,12 @@ class StartEpisodeRequest(BaseModel):
     training_enabled: bool = True
 
 
-class EndEpisodeRequest(Observation):
+class EndEpisodeRequest(BaseModel):
     episode_id: str
-    observation: Observation
+    game_id: str
+    timeslot: int
+    cleared_orders_price: str
+    cleared_orders_energy: str
 
 
 class LogReturnsRequest(BaseModel):

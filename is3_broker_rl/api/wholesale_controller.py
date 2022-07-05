@@ -67,7 +67,6 @@ class WholesaleController:
     @fastapi_app.post("/get-action")
     def get_action(self, request: GetActionRequest):
         try:
-            self._log.error("test1")
             self._check_episode_started()
             self.finished_observation = False
             self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
@@ -84,7 +83,7 @@ class WholesaleController:
             action_scaled = np.zeros((48))
             for i in range(48):
                 if i %2 == 0:
-                    action_scaled[i] = ((action[i] * 500))
+                    action_scaled[i] = ((action[i] * 150))
                     temp_action = action_scaled[i]
                 else:
                     if temp_action < 0:
@@ -124,10 +123,15 @@ class WholesaleController:
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
         self._log.debug(f"Called end_episode with {request}.")
+        self._check_episode_started()
         self.finished_observation = False
-        self._policy_client.end_episode(self._episode.episode_id, self.last_obs.to_feature_vector())
-        self.last_action_str = ""
-        self.last_obs = None
+        self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
+        self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
+        obs = self._standardize_observation(self.last_obs)
+        self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
+        #self.last_action_str = ""
+        #self.last_obs = None
+        
 
 
     @fastapi_app.post("/build_observation")
