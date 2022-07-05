@@ -29,7 +29,7 @@ def _input(ioctx: IOContext) -> Any:
 def start_policy_server() -> None:
     config = {
         "env": None,
-        # gridImbalance, ownBalancingCosts, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
+        # gridImbalance, ownImbalanceKwh, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
         # marketPosition
         "observation_space": gym.spaces.Box(
             low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0, 0]),
