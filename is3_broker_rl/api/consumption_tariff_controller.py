@@ -22,7 +22,7 @@ from is3_broker_rl.api.dto import (
 )
 from is3_broker_rl.api.fastapi_app import fastapi_app
 from is3_broker_rl.conf import setup_logging
-from is3_broker_rl.model.consumption_tariff_policy_server import (
+from is3_broker_rl.model.consumption_tariff_config import (
     SERVER_ADDRESS,
     SERVER_BASE_PORT,
 )
