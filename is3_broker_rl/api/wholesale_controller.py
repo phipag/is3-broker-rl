@@ -53,7 +53,6 @@ class WholesaleController:
 
     @fastapi_app.post("/start-episode")
     def start_episode(self, request: StartEpisodeRequest) -> Episode:
-        # self._log.info(f"1Started new episode with episode_id={episode_id}.")
         self._log.debug(f"Called start_episode with {request}.")
         try:
             episode_id = self._policy_client.start_episode(training_enabled=True)
@@ -71,10 +70,11 @@ class WholesaleController:
             self.finished_observation = False
             self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
             self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
-
+            self.last_obs.cleared_trade_price = self.string_to_list(request.cleared_trade_price)
+            self.last_obs.cleared_trade_energy = self.string_to_list(request.cleared_trade_energy)
+            self.last_obs.customer_count = request.customer_count
             # TODO: Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
-            self._log.error("test1")
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
             # Transform the action space from [-1:1] to [-100:100] for the price. 
             # And transforms the action space from [0:1000] for the energy. 
@@ -97,11 +97,8 @@ class WholesaleController:
 
             for act in action_scaled:
                 act1 = str(act)
-                # self._log.debug(f"{act1}")
                 return_string = return_string + ";" + act1
-            # except Exception as e:
-            #    self._log.error(f"Error {e} during get-action")
-            self._log.info(f"Return String: {return_string}")
+
             self._persist_action(return_string)
             return return_string
         except Exception as e:
@@ -127,6 +124,9 @@ class WholesaleController:
         self.finished_observation = False
         self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
         self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
+        self.last_obs.cleared_trade_price = self.string_to_list(request.cleared_trade_price)
+        self.last_obs.cleared_trade_energy = self.string_to_list(request.cleared_trade_energy)
+        self.last_obs.customer_count = request.customer_count
         obs = self._standardize_observation(self.last_obs)
         self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
         #self.last_action_str = ""
@@ -154,13 +154,13 @@ class WholesaleController:
                 p_wind_speed=obs[120:144].tolist(),
                 cleared_orders_price=[0]*24,  # Inputs empty values. These will be filled later. 
                 cleared_orders_energy=[0]*24,  # Inputs empty values. These will be filled later.
+                cleared_trade_price=[0]*24,  # Inputs empty values. These will be filled later. 
+                cleared_trade_energy=[0]*24,  # Inputs empty values. These will be filled later.
+                customer_count=0,
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
             )
-            # self._log.debug(self.last_obs.p_wholesale_price)
-            # feature_vector_test = self.last_obs.to_feature_vector()
-            # self._log.info(f"Building observation with: {obs}")
-            # self._log.debug(f"Testing feature vector: {feature_vector_test}")
+
             self.finished_observation = True
         except Exception as e:
             self._log.error(f"Observation building error: {e}", exc_info=True)
@@ -292,7 +292,10 @@ class WholesaleController:
                 hour_of_day= obs.hour_of_day,
                 day_of_week=obs.day_of_week,
                 cleared_orders_energy=obs.cleared_orders_energy,
-                cleared_orders_price=obs.cleared_orders_price
+                cleared_orders_price=obs.cleared_orders_price,
+                cleared_trade_energy=obs.cleared_trade_energy,
+                cleared_trade_price=obs.cleared_trade_price,
+                customer_count=obs.customer_count,
 
             )
 

@@ -41,6 +41,12 @@ class Env_config:
         h_bounds.append(np.array([1000] * 24))
         l_bounds.append(np.array([-1000] * 24))  # cleared_orders_energy = 0
         h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # cleared_trade_price = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 24))  # cleared_trade_energy = 0
+        h_bounds.append(np.array([1000] * 24))
+        l_bounds.append(np.array([-1000] * 1))  # customer_count
+        h_bounds.append(np.array([1000] * 1))
         l_bounds.append(np.array([-1000] * 24))  # hour of the start with dummy.
         h_bounds.append(np.array([1000] * 24))
         l_bounds.append(np.array([-1000] * 7))  # day of the start with dummy

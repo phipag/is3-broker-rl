@@ -31,6 +31,9 @@ class Observation(BaseModel):
     p_wind_speed: List[float] = []
     cleared_orders_price: List[float] = []
     cleared_orders_energy: List[float] = []
+    cleared_trade_price: List[float] = []
+    cleared_trade_energy: List[float] = []
+    customer_count: int
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
 
@@ -45,6 +48,9 @@ class Observation(BaseModel):
                 np.array(self.p_wind_speed),
                 np.array(self.cleared_orders_price),
                 np.array(self.cleared_orders_energy),
+                np.array(self.cleared_trade_price),
+                np.array(self.cleared_trade_energy),
+                np.array([self.customer_count]),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
             )
@@ -65,6 +71,9 @@ class EndEpisodeRequest(BaseModel):
     timeslot: int
     cleared_orders_price: str
     cleared_orders_energy: str
+    cleared_trade_price: str
+    cleared_trade_energy: str
+    customer_count: int
 
 
 class LogReturnsRequest(BaseModel):
@@ -78,3 +87,6 @@ class GetActionRequest(BaseModel):
     timeslot: int
     cleared_orders_price: str
     cleared_orders_energy: str
+    cleared_trade_price: str
+    cleared_trade_energy: str
+    customer_count: int
