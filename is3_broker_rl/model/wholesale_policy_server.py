@@ -193,11 +193,7 @@ def start_policy_server():
             "input_evaluation": [],
             "simple_optimizer": True,
             "framework":'tf2',
-            "replay_buffer_config": {
-                "_enable_replay_buffer_api": False,
-                "type": "MultiAgentReplayBuffer",
-                "capacity": int(1e6),
-            }
+            
         }
 
     config = with_common_config(config)
