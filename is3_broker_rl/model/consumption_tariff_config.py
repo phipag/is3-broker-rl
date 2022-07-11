@@ -28,12 +28,13 @@ dqn_config = with_common_config({
     "env": None,
     # Use the `PolicyServerInput` to generate experiences.
     "input": _input,
-    # gridImbalance, ownImbalanceKwh, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
+    # timeslot, gridImbalance, ownImbalanceKwh, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
     # marketPosition
     "observation_space": gym.spaces.Box(
-        low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0, 0]),
+        low=np.array([360, np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0, 0]),
         high=np.array(
             [
+                4000,
                 np.finfo(np.float32).max,
                 np.finfo(np.float32).max,
                 np.finfo(np.float32).max,

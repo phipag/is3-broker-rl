@@ -39,6 +39,7 @@ class Observation(BaseModel):
 
     def to_feature_vector(self) -> List[Union[float, int]]:
         return [
+            self.timeslot,
             self.gridImbalance,
             self.ownImbalanceKwh,
             self.customerNetDemand,

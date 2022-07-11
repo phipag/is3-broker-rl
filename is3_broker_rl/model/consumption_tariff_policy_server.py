@@ -18,6 +18,6 @@ def start_policy_server() -> None:
         verbose=2,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name="DQN_Consumption_Test4",
+        name="DQN_Consumption_Test5",
         resume="AUTO",  # Will load the latest checkpoint from the local experiment directory or start a new one
     )
