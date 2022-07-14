@@ -57,7 +57,7 @@ dqn_config = with_common_config({
     "framework": "tf2",
     "eager_tracing": True,
     "log_level": "DEBUG",
-    "timesteps_per_iteration": 8,
+    "timesteps_per_iteration": 20,
     "rollout_fragment_length": 8,
     "train_batch_size": 8,
     "lr": 1e-2,
