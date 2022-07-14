@@ -18,6 +18,7 @@ from is3_broker_rl.api.dto import (
     GetActionRequest,
     LogReturnsRequest,
     Observation,
+    Reward,
     StartEpisodeRequest,
 )
 from is3_broker_rl.api.fastapi_app import fastapi_app
@@ -63,7 +64,9 @@ class ConsumptionTariffController:
         header = False if os.path.exists(file) else True
         df.to_csv(file, mode="a", index=False, header=header)
 
-    def _persist_reward(self, reward: float, observation: Observation, last_action: Optional[Action]) -> None:
+    def _persist_reward(
+        self, reward: float, reward_info: Reward, observation: Observation, last_action: Optional[Action]
+    ) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         os.makedirs(self._DATA_DIR, exist_ok=True)
@@ -72,6 +75,7 @@ class ConsumptionTariffController:
             {
                 "episode_id": self._episode.episode_id,
                 "reward": reward,
+                **reward_info.dict(),
                 **observation.dict(),
                 "last_action": last_action,
             },
@@ -112,9 +116,9 @@ class ConsumptionTariffController:
         assert isinstance(self._episode, Episode)  # Make mypy happy
 
         self._log.debug("Persisting reward to .csv file ...")
-        self._persist_reward(request.reward, request.observation, request.last_action)
+        self._persist_reward(request.reward, request.reward_info, request.observation, request.last_action)
 
-        self._policy_client.log_returns(self._episode.episode_id, request.reward)
+        self._policy_client.log_returns(self._episode.episode_id, request.reward, info=request.reward_info.dict())
 
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:

@@ -65,9 +65,19 @@ class EndEpisodeRequest(BaseModel):
     observation: Observation
 
 
+class Reward(BaseModel):
+    consumption_profit: float
+    action_penalty: float
+    consumption_fees: float
+    balancing_costs: float
+    capacity_costs: float
+    wholesale_costs: float
+
+
 class LogReturnsRequest(BaseModel):
     episode_id: str
     reward: float
+    reward_info: Reward
     observation: Observation
     last_action: Optional[Action]
 
