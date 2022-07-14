@@ -124,9 +124,9 @@ def start_policy_server():
         }
 
     elif trainer_name == "SAC":
-        config= {
+        config = {
             # gridImbalance, ownImbalance, customerNetDemand, customerCount, marketPosition
-            "env" : None,
+            "env": None,
             "observation_space": observation_space,
             "action_space": action_space,
             "input": _input,
@@ -137,7 +137,7 @@ def start_policy_server():
             # Use a e.g. conv2D state preprocessing network before concatenating the
             # resulting (feature) vector with the action input for the input to
             # the Q-networks.
-            #"use_state_preprocessor": DEPRECATED_VALUE,
+            # "use_state_preprocessor": DEPRECATED_VALUE,
             "observation_filter": "MeanStdFilter",
             # Model options for the Q network(s). These will override MODEL_DEFAULTS.
             # The `Q_model` dict is treated just as the top-level `model` dict in
@@ -151,14 +151,11 @@ def start_policy_server():
             # You can also have SAC use your custom_model as Q-model(s), by simply
             # specifying the `custom_model` sub-key in below dict (just like you would
             # do in the top-level `model` dict.
-            
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
             "n_step": 24,
             # Number of env steps to optimize for before returning.
             "timesteps_per_iteration": 2,
-
-
             # The intensity with which to update the model (vs collecting samples from
             # the env). If None, uses the "natural" value of:
             # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
@@ -174,7 +171,6 @@ def start_policy_server():
             #      often as rollout+insert op (4 * 250 = 1000).
             # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
             "training_intensity": 100,
-
             # How many steps of the model to sample before learning starts.
             "learning_starts": 5,
             # Update the replay buffer with this many samples at once. Note that this
@@ -192,12 +188,12 @@ def start_policy_server():
             },
             "input_evaluation": [],
             "simple_optimizer": True,
-            "framework":'tf2',
+            "framework": "tf2",
             "replay_buffer_config": {
                 "_enable_replay_buffer_api": False,
                 "type": "MultiAgentReplayBuffer",
                 "capacity": int(1e6),
-            }
+            },
         }
 
     config = with_common_config(config)
@@ -216,5 +212,4 @@ def start_policy_server():
         name=f"{trainer_name}_Test2",
         resume="AUTO",
         mode="max",
-
     )

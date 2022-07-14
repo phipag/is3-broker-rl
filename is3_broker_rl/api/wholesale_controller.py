@@ -1,18 +1,20 @@
-from cmath import e
 import json
 import logging
-from posixpath import split
+import os
 import pwd
+from cmath import e
+from pathlib import Path
+from posixpath import split
 from typing import Optional
+
 import dotenv
 import numpy as np
-from fastapi import HTTPException
 import pandas as pd
+from fastapi import HTTPException
 from ray import serve
-from pathlib import Path
 from ray.rllib.env import PolicyClient
 from starlette.requests import Request
-import os
+
 from is3_broker_rl.api.fastapi_app import fastapi_app
 from is3_broker_rl.api.wholesale_dto import (
     EndEpisodeRequest,
@@ -30,7 +32,6 @@ from is3_broker_rl.model.wholesale_policy_server import SERVER_ADDRESS, SERVER_B
 @serve.ingress(fastapi_app)
 class WholesaleController:
     last_obs: np.ndarray
-
 
     def __init__(self) -> None:
         # This runs in a Ray actor worker process, so we have to initialize the logging again
@@ -76,21 +77,21 @@ class WholesaleController:
             # TODO: Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
-            # Transform the action space from [-1:1] to [-100:100] for the price. 
-            # And transforms the action space from [0:1000] for the energy. 
-            # The sign is 
+            # Transform the action space from [-1:1] to [-100:100] for the price.
+            # And transforms the action space from [0:1000] for the energy.
+            # The sign is
             #  See powertac game specification.
             action_scaled = np.zeros((48))
             for i in range(48):
-                if i %2 == 0:
-                    action_scaled[i] = ((action[i] * 150))
+                if i % 2 == 0:
+                    action_scaled[i] = action[i] * 150
                     temp_action = action_scaled[i]
                 else:
                     if temp_action < 0:
                         sign = 1
                     else:
                         sign = -1
-                        action_scaled[i] = ((action[i] * 50)+50) * sign
+                        action_scaled[i] = ((action[i] * 50) + 50) * sign
 
             self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
@@ -105,17 +106,14 @@ class WholesaleController:
             self._log.error(f"Get Action error: {e}", exc_info=True)
             return ""
 
-
-
     @fastapi_app.post("/log-returns")
     def log_returns(self, request: LogReturnsRequest) -> None:
-        reward = request.reward /100000
+        reward = request.reward / 100000
         self._log.info(f"Called log_returns with {request.reward}.")
         self._check_episode_started()
-        
+
         self._persist_reward(reward)
         self._policy_client.log_returns(self._episode.episode_id, reward)
-
 
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
@@ -129,10 +127,8 @@ class WholesaleController:
         self.last_obs.customer_count = request.customer_count
         obs = self._standardize_observation(self.last_obs)
         self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
-        #self.last_action_str = ""
-        #self.last_obs = None
-        
-
+        # self.last_action_str = ""
+        # self.last_obs = None
 
     @fastapi_app.post("/build_observation")
     def build_observation(self, request: Request) -> None:
@@ -152,10 +148,10 @@ class WholesaleController:
                 p_cloud_cover=obs[72:96].tolist(),
                 p_temperature=obs[96:120].tolist(),
                 p_wind_speed=obs[120:144].tolist(),
-                cleared_orders_price=[0]*24,  # Inputs empty values. These will be filled later. 
-                cleared_orders_energy=[0]*24,  # Inputs empty values. These will be filled later.
-                cleared_trade_price=[0]*24,  # Inputs empty values. These will be filled later. 
-                cleared_trade_energy=[0]*24,  # Inputs empty values. These will be filled later.
+                cleared_orders_price=[0] * 24,  # Inputs empty values. These will be filled later.
+                cleared_orders_energy=[0] * 24,  # Inputs empty values. These will be filled later.
+                cleared_trade_price=[0] * 24,  # Inputs empty values. These will be filled later.
+                cleared_trade_energy=[0] * 24,  # Inputs empty values. These will be filled later.
                 customer_count=0,
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
@@ -165,8 +161,6 @@ class WholesaleController:
         except Exception as e:
             self._log.error(f"Observation building error: {e}", exc_info=True)
 
-
-
     def _persist_action(self, action) -> None:
         try:
             self._check_episode_started()
@@ -174,7 +168,9 @@ class WholesaleController:
             os.makedirs(self._DATA_DIR, exist_ok=True)
             self.last_action_str = action
             observation = self.last_obs
-            df = pd.DataFrame({"episode_id": self._episode.episode_id, "observation": observation.json(), "action": action}, index=[0])
+            df = pd.DataFrame(
+                {"episode_id": self._episode.episode_id, "observation": observation.json(), "action": action}, index=[0]
+            )
             self._log.debug(df.iloc[0].to_json())
 
             file = self._DATA_DIR / "wholesale_action.csv"
@@ -182,7 +178,6 @@ class WholesaleController:
             df.to_csv(file, mode="a", index=False, header=header)
         except Exception as e:
             self._log.debug(f"Persist action error {e}", exc_info=True)
-
 
     def _persist_reward(self, reward: float) -> None:
         self._check_episode_started()
@@ -208,11 +203,11 @@ class WholesaleController:
 
     def _standardize_observation(self, obs: Observation):
         mean = {
-            0: 13.63367803668246,  #temperature
+            0: 13.63367803668246,  # temperature
             1: 2.8749491311183646,  # windspeed
             2: 0.3507285267995091,  # cloudCover
             3: -5562.860502868995,  # gridImbalance
-            4: 67.94300403314354,   # wholesale_price t0- t23
+            4: 67.94300403314354,  # wholesale_price t0- t23
             5: 52.525031707832994,
             6: 52.88933002824563,
             7: 53.6404562916743,
@@ -236,7 +231,7 @@ class WholesaleController:
             25: 53.6202408477646,
             26: 53.19566381723961,
             27: 88.24426167683156,
-            28: -6204.5187837914200000, # enc_customer_prosumption
+            28: -6204.5187837914200000,  # enc_customer_prosumption
         }
 
         std = {
@@ -268,15 +263,15 @@ class WholesaleController:
             25: 79.12346949638426,
             26: 78.50764659516479,
             27: 102.93501402012687,
-            28: 10273.1983911710890000, # enc_customer_prosumption
+            28: 10273.1983911710890000,  # enc_customer_prosumption
         }
         try:
             wholesale_price = []
             i = 4
             for x in obs.p_wholesale_price:
-                
+
                 wholesale_price.append((x - mean[i]) / std[i])
-                i+=1
+                i += 1
 
             self._log.debug(f"Scaled wholesale: {wholesale_price}")
 
@@ -289,26 +284,22 @@ class WholesaleController:
                 p_grid_imbalance=[((x - mean[3]) / std[3]) for x in obs.p_grid_imbalance],
                 p_customer_prosumption=[((x - mean[28]) / std[28]) for x in obs.p_customer_prosumption],
                 p_wholesale_price=wholesale_price,
-                hour_of_day= obs.hour_of_day,
+                hour_of_day=obs.hour_of_day,
                 day_of_week=obs.day_of_week,
                 cleared_orders_energy=obs.cleared_orders_energy,
                 cleared_orders_price=obs.cleared_orders_price,
                 cleared_trade_energy=obs.cleared_trade_energy,
                 cleared_trade_price=obs.cleared_trade_price,
                 customer_count=obs.customer_count,
-
             )
 
             self._log.debug(f"Scaled Obs: {scaled_obs}")
         except Exception as e:
             self._log.debug(f"Scaling obs error {e}", exc_info=True)
 
-
         return scaled_obs
 
-
-
-    def string_to_list(self, input_string: str, delimeter = ";"):
+    def string_to_list(self, input_string: str, delimeter=";"):
         splits = input_string.split(delimeter)
         self._log.info(f"Splits {splits}")
         return_list = []
@@ -317,7 +308,3 @@ class WholesaleController:
                 return_list.append(float(value))
 
         return return_list
-
-
-
-    

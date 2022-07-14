@@ -36,6 +36,7 @@ class Observation(BaseModel):
     marketPosition: MarketPosition
     wholesalePrice: float
     ownWholesalePrice: float
+    cashPosition: float
 
     def to_feature_vector(self) -> List[Union[float, int]]:
         return [
@@ -45,6 +46,7 @@ class Observation(BaseModel):
             self.customerNetDemand,
             self.wholesalePrice,
             self.ownWholesalePrice,
+            self.cashPosition,
             self.customerCount,
             self.marketPosition.value,
         ]
