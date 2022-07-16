@@ -49,9 +49,11 @@ dqn_config = with_common_config(
                     np.finfo(np.float32).max,  # gridImbalance
                     np.finfo(np.float32).max,  # ownImbalanceKwh
                     np.finfo(np.float32).max,  # customerNetDemand
-                    # wholesalePrice: Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
+                    # wholesalePrice: Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a
+                    # generous limit
                     1000,
-                    # ownWholesalePrice: Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
+                    # ownWholesalePrice: Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a
+                    # generous limit
                     1000,
                     np.finfo(np.float32).max,  # cashPosition
                     1e6,  # customerCount
@@ -60,24 +62,25 @@ dqn_config = with_common_config(
             ),
             dtype=np.float32,
         ),
+        # Normalize the observations
         "observation_filter": "MeanStdFilter",
         "action_space": gym.spaces.Discrete(5),
+        # Normalize the rewards
         "callbacks": NormalizeRewardCallback,
         # Use n worker processes to listen on different ports.
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
         "input_evaluation": [],
-        # DL framework to use.
         "framework": "tf2",
         "eager_tracing": True,
         "log_level": "DEBUG",
-        "timesteps_per_iteration": 20,
-        "rollout_fragment_length": 8,
-        "train_batch_size": 8,
-        "lr": 1e-2,
+        "timesteps_per_iteration": 32,
+        "rollout_fragment_length": 16,
+        "train_batch_size": 16,
+        "lr": 1e-3,
         # DQN
         "replay_buffer_config": {"learning_starts": 0},
-        "n_step": 1,
+        "n_step": 2,
         "model": {
             "fcnet_hiddens": [64],
             "fcnet_activation": "relu",
