@@ -74,10 +74,12 @@ dqn_config = with_common_config(
         "framework": "tf2",
         "eager_tracing": True,
         "log_level": "DEBUG",
-        "timesteps_per_iteration": 32,
+        "timesteps_per_iteration": 64,
         "rollout_fragment_length": 16,
         "train_batch_size": 16,
         "lr": 1e-3,
+        # Discount factor for future reward (default value is 0.99)
+        "gamma": 0.99,
         # DQN
         "replay_buffer_config": {"learning_starts": 0},
         "n_step": 2,
