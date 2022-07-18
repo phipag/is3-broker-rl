@@ -77,12 +77,15 @@ dqn_config = with_common_config(
         "timesteps_per_iteration": 64,
         "rollout_fragment_length": 16,
         "train_batch_size": 16,
-        "lr": 1e-3,
+        "lr": 1e-2,
         # Discount factor for future reward (default value is 0.99)
         "gamma": 0.99,
         # DQN
         "replay_buffer_config": {"learning_starts": 0},
-        "n_step": 2,
+        # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
+        # 168 / 14 = 12 timesteps will make sure that the capacity costs (every 168 timeslots) are associated
+        # to the action reward.
+        "n_step": 12,
         "model": {
             "fcnet_hiddens": [64],
             "fcnet_activation": "relu",
