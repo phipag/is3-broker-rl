@@ -24,49 +24,75 @@ def _input(ioctx: IOContext) -> Any:
         return None
 
 
-dqn_config = with_common_config({
-    "env": None,
-    # Use the `PolicyServerInput` to generate experiences.
-    "input": _input,
-    # gridImbalance, ownImbalanceKwh, customerNetDemand, wholesalePrice, ownWholesalePrice, customerCount,
-    # marketPosition
-    "observation_space": gym.spaces.Box(
-        low=np.array([np.finfo(np.float32).min, np.finfo(np.float32).min, np.finfo(np.float32).min, 0, 0, 0, 0]),
-        high=np.array(
-            [
-                np.finfo(np.float32).max,
-                np.finfo(np.float32).max,
-                np.finfo(np.float32).max,
-                1000,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
-                1000,  # Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a generous limit
-                1e6,
-                4,
-            ]
+dqn_config = with_common_config(
+    {
+        "env": None,
+        # Use the `PolicyServerInput` to generate experiences.
+        "input": _input,
+        "observation_space": gym.spaces.Box(
+            low=np.array(
+                [
+                    360,  # timeslot
+                    np.finfo(np.float32).min,  # gridImbalance
+                    np.finfo(np.float32).min,  # ownImbalanceKwh
+                    np.finfo(np.float32).min,  # customerNetDemand
+                    0,  # wholesalePrice
+                    0,  # ownWholesalePrice
+                    np.finfo(np.float32).min,  # cashPosition
+                    0,  # consumptionShare
+                    0,  # productionShare
+                    0,  # customerCount
+                    0,  # marketPosition
+                ]
+            ),
+            high=np.array(
+                [
+                    4000,  # timeslot
+                    np.finfo(np.float32).max,  # gridImbalance
+                    np.finfo(np.float32).max,  # ownImbalanceKwh
+                    np.finfo(np.float32).max,  # customerNetDemand
+                    # wholesalePrice: Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a
+                    # generous limit
+                    1000,
+                    # ownWholesalePrice: Typical wholesale buying prices are maximum 40-50 euro/MWh, and so we set a
+                    # generous limit
+                    1000,
+                    np.finfo(np.float32).max,  # cashPosition
+                    1,  # consumptionShare
+                    1,  # productionShare
+                    1e6,  # customerCount
+                    4,  # marketPosition
+                ]
+            ),
+            dtype=np.float32,
         ),
-        dtype=np.float32,
-    ),
-    "observation_filter": "MeanStdFilter",
-    "action_space": gym.spaces.Discrete(5),
-    "callbacks": NormalizeRewardCallback,
-    # Use n worker processes to listen on different ports.
-    "num_workers": N_WORKERS,
-    # Disable off-policy-evaluation, since the rollouts are coming from online clients.
-    "input_evaluation": [],
-    # DL framework to use.
-    "framework": "tf2",
-    "eager_tracing": True,
-    "log_level": "DEBUG",
-    "timesteps_per_iteration": 8,
-    "rollout_fragment_length": 8,
-    "train_batch_size": 8,
-    "lr": 1e-2,
-
-    # DQN
-    "replay_buffer_config": {"learning_starts": 0},
-    "n_step": 1,
-    "model": {
-        "fcnet_hiddens": [64],
-        "fcnet_activation": "relu",
-    },
-
-})
+        # Normalize the observations
+        "observation_filter": "MeanStdFilter",
+        "action_space": gym.spaces.Discrete(5),
+        # Normalize the rewards
+        "callbacks": NormalizeRewardCallback,
+        # Use n worker processes to listen on different ports.
+        "num_workers": N_WORKERS,
+        # Disable off-policy-evaluation, since the rollouts are coming from online clients.
+        "input_evaluation": [],
+        "framework": "tf2",
+        "eager_tracing": True,
+        "log_level": "DEBUG",
+        "timesteps_per_iteration": 64,
+        "rollout_fragment_length": 16,
+        "train_batch_size": 16,
+        "lr": 1e-2,
+        # Discount factor for future reward (default value is 0.99)
+        "gamma": 0.99,
+        # DQN
+        "replay_buffer_config": {"learning_starts": 0},
+        # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
+        # 168 / 14 = 12 timesteps will make sure that the capacity costs (every 168 timeslots) are associated
+        # to the last 12 taken actions taken.
+        "n_step": 12,
+        "model": {
+            "fcnet_hiddens": [64],
+            "fcnet_activation": "relu",
+        },
+    }
+)

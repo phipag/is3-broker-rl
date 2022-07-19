@@ -127,9 +127,9 @@ def start_policy_server():
         }
 
     elif trainer_name == "SAC":
-        config= {
+        config = {
             # gridImbalance, ownImbalance, customerNetDemand, customerCount, marketPosition
-            "env" : None,
+            "env": None,
             "observation_space": observation_space,
             "action_space": action_space,
             "input": _input,
@@ -140,7 +140,7 @@ def start_policy_server():
             # Use a e.g. conv2D state preprocessing network before concatenating the
             # resulting (feature) vector with the action input for the input to
             # the Q-networks.
-            #"use_state_preprocessor": DEPRECATED_VALUE,
+            # "use_state_preprocessor": DEPRECATED_VALUE,
             "observation_filter": "MeanStdFilter",
             # Model options for the Q network(s). These will override MODEL_DEFAULTS.
             # The `Q_model` dict is treated just as the top-level `model` dict in
@@ -154,7 +154,6 @@ def start_policy_server():
             # You can also have SAC use your custom_model as Q-model(s), by simply
             # specifying the `custom_model` sub-key in below dict (just like you would
             # do in the top-level `model` dict.
-            
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
             "n_step": 1,
@@ -283,5 +282,4 @@ def start_policy_server():
         name=f"{trainer_name}_Test3",
         resume="AUTO",
         mode="max",
-
     )

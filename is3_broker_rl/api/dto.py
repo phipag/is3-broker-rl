@@ -36,14 +36,21 @@ class Observation(BaseModel):
     marketPosition: MarketPosition
     wholesalePrice: float
     ownWholesalePrice: float
+    cashPosition: float
+    consumptionShare: float
+    productionShare: float
 
     def to_feature_vector(self) -> List[Union[float, int]]:
         return [
+            self.timeslot,
             self.gridImbalance,
             self.ownImbalanceKwh,
             self.customerNetDemand,
             self.wholesalePrice,
             self.ownWholesalePrice,
+            self.cashPosition,
+            self.consumptionShare,
+            self.productionShare,
             self.customerCount,
             self.marketPosition.value,
         ]
@@ -62,9 +69,19 @@ class EndEpisodeRequest(BaseModel):
     observation: Observation
 
 
+class Reward(BaseModel):
+    consumption_profit: float
+    action_penalty: float
+    consumption_fees: float
+    balancing_costs: float
+    capacity_costs: float
+    wholesale_costs: float
+
+
 class LogReturnsRequest(BaseModel):
     episode_id: str
     reward: float
+    reward_info: Reward
     observation: Observation
     last_action: Optional[Action]
 
