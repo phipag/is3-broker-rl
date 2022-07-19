@@ -1,7 +1,10 @@
 # `InputReader` generator (returns None if no input reader is needed on
 # the respective worker).
+import os
+from pathlib import Path
 from typing import Dict, Tuple
 
+import joblib
 import numpy as np
 from ray.rllib import Policy, RolloutWorker, SampleBatch
 from ray.rllib.agents import DefaultCallbacks
@@ -9,11 +12,21 @@ from ray.rllib.evaluation import Episode
 from ray.rllib.utils.filter import MeanStdFilter
 from ray.rllib.utils.typing import AgentID, PolicyID
 
+import is3_broker_rl
+
 
 class NormalizeRewardCallback(DefaultCallbacks):
+    _REWARD_DUMP_PATH = (
+        Path(os.environ.get("DATA_DIR", Path(is3_broker_rl.__file__).parent.parent / "data"))
+        / "consumption_reward_mean_std.joblib"
+    )
+
     def __init__(self, legacy_callbacks_dict: Dict[str, callable] = None):
         super().__init__(legacy_callbacks_dict)
-        self._reward_normalizer = MeanStdFilter(shape=(1,))
+        if os.path.exists(NormalizeRewardCallback._REWARD_DUMP_PATH):
+            self._reward_normalizer = joblib.load(NormalizeRewardCallback._REWARD_DUMP_PATH)
+        else:
+            self._reward_normalizer = MeanStdFilter(shape=(1,))
 
     def on_postprocess_trajectory(
         self,
@@ -47,12 +60,14 @@ class NormalizeRewardCallback(DefaultCallbacks):
                 trajectory data. You should not mutate this object.
             kwargs: Forward compatibility placeholder.
         """
+        print("Current reward normalizer stats:", self._reward_normalizer)
         print("Original rewards:", postprocessed_batch["rewards"])
         # We normalize each reward separately because we do not want a column-wise normalization
         postprocessed_batch["rewards"] = np.array(
             [self._reward_normalizer([reward])[0] for reward in postprocessed_batch["rewards"]]
         )
         print("Normalized rewards:", postprocessed_batch["rewards"])
+        joblib.dump(self._reward_normalizer, NormalizeRewardCallback._REWARD_DUMP_PATH)
         if self.legacy_callbacks.get("on_postprocess_traj"):
             self.legacy_callbacks["on_postprocess_traj"](
                 {
