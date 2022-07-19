@@ -98,7 +98,7 @@ class WholesaleController:
                         sign = 1
                     else:
                         sign = -1
-                        action_scaled[i] = ((action[i] * 50) + 50) * sign
+                    action_scaled[i] = ((action[i] * 50) + 50) * sign
 
             self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
