@@ -6,6 +6,7 @@ from cmath import e
 from pathlib import Path
 from posixpath import split
 from typing import Optional
+import math
 
 import dotenv
 import numpy as np
@@ -78,7 +79,7 @@ class WholesaleController:
             self.last_obs.customer_count = request.customer_count
             self.last_obs.total_prosumption = float(request.total_prosumption)
             self.last_obs.market_position = self.string_to_list(request.market_position)
-            self._log.debug(type(self.last_obs.total_prosumption))
+
             # TODO: Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
@@ -119,19 +120,13 @@ class WholesaleController:
             reward = request.reward / 100000
             # Adding reward shaping with the difference between the market prices and our prices.
             # Percentage difference between actual and our prices?
+            sum_mWh = request.sum_mWh
+            final_market_balance = request.final_market_balance
+            i=0
 
-            # i=0
-            # shaped_return = 0
-            # for value in self.last_action:
-            #    if i%2 == 0:
-            #        shaped_return -= abs(self.last_obs.cleared_trade_energy[int(round(i/2))] / value)
-            #    if i%2 == 1:
-            #
-            #        shaped_return -= abs(self.last_obs.cleared_trade_price[int(round(i/2))-1] / value)
-            #    i+=1
-            #
-            # self._log.info(f"Only shaped_reward: {shaped_return}")
-            # reward = reward + shaped_return
+            shaped_return = abs( final_market_balance - sum_mWh) * -1
+            self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
+            reward = reward + shaped_return
             self._log.info(f"Called log_returns with {request.reward}.")
             self._check_episode_started()
 
@@ -326,8 +321,7 @@ class WholesaleController:
                 market_position=obs.market_position,
             )
             x = scaled_obs.total_prosumption
-            self._log.debug(f"test2 {x}")
-            self._log.debug(f"test3 {scaled_obs.to_feature_vector()}")
+            
             self._log.debug(f"Scaled Obs: {scaled_obs}")
         except Exception as e:
             self._log.debug(f"Scaling obs error {e}", exc_info=True)

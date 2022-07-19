@@ -25,36 +25,36 @@ class Env_config:
         # l_bounds.append(np.array([-np.inf]*7))      # day of the start with dummy
         # h_bounds.append(np.array([np.inf]*7))
 
-        l_bounds.append(np.array([-1000] * 24))  # p_grid_imbalance = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # p_customer_prosumption = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # p_wholesale_price = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # p_cloud_cover = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # p_temperature = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # p_wind_speed = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # cleared_orders_price = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # cleared_orders_energy = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # cleared_trade_price = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # cleared_trade_energy = 0
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 1))  # customer_count
-        h_bounds.append(np.array([1000] * 1))
-        l_bounds.append(np.array([-1000000] * 1))  # total_prosumption
-        h_bounds.append(np.array([1000000] * 1))
-        l_bounds.append(np.array([-1000000] * 24))  # market_position = 0
-        h_bounds.append(np.array([10000000] * 24))
-        l_bounds.append(np.array([-1000] * 24))  # hour of the start with dummy.
-        h_bounds.append(np.array([1000] * 24))
-        l_bounds.append(np.array([-1000] * 7))  # day of the start with dummy
-        h_bounds.append(np.array([1000] * 7))
+        l_bounds.append(np.array([-np.inf] * 24))  # p_grid_imbalance = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # p_customer_prosumption = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # p_wholesale_price = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # p_cloud_cover = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # p_temperature = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # p_wind_speed = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_price = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_energy = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_price = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_energy = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 1))  # customer_count
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # total_prosumption
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 24))  # market_position = 0
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # hour of the start with dummy.
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 7))  # day of the start with dummy
+        h_bounds.append(np.array([np.inf] * 7))
 
         l_bound_total = np.array([])
         for j in l_bounds:

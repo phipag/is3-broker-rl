@@ -154,9 +154,10 @@ def start_policy_server():
             # do in the top-level `model` dict.
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
-            "n_step": 1,
+            "n_step": 24,
             # Number of env steps to optimize for before returning.
-            "timesteps_per_iteration": 1,
+            "timesteps_per_iteration": 100,
+            #"eager_tracing":True,
             # The intensity with which to update the model (vs collecting samples from
             # the env). If None, uses the "natural" value of:
             # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
@@ -176,7 +177,7 @@ def start_policy_server():
             # setting applies per-worker if num_workers > 1.
             "rollout_fragment_length": 2,
             # Size of a batched sampled from replay buffer for training.
-            "train_batch_size": 2,
+            "train_batch_size": 16,
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
             # === Optimization ===
@@ -186,7 +187,7 @@ def start_policy_server():
                 "entropy_learning_rate": 3e-2,
             },
             "input_evaluation": [],
-            "simple_optimizer": True,
+            #"simple_optimizer": True,
             "framework": "tf2",
             "Q_model": {
                 "fcnet_hiddens": [256, 256],
@@ -210,9 +211,9 @@ def start_policy_server():
             # === Replay buffer ===
             # Size of the replay buffer (in time steps).
             "replay_buffer_config": {
-                "_enable_replay_buffer_api": False,
+                "_enable_replay_buffer_api": True,
                 "type": "MultiAgentReplayBuffer",
-                "capacity": int(1e6),
+                "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
                 "learning_starts": 100,
             },
@@ -224,6 +225,7 @@ def start_policy_server():
             "prioritized_replay_eps": 1e-6,
             # Whether to LZ4 compress observations
             "compress_observations": True,
+            
         }
 
     config = with_common_config(config)
@@ -237,7 +239,7 @@ def start_policy_server():
         # the dimensionality of the observation embedding vectors in latent space.
         "embeds_dim": 128,
         "rho": 0.1,  # Beta decay factor, used for on-policy algorithm.
-        "k_nn": 50,  # Number of neighbours to set for K-NN entropy estimation.
+        "k_nn": 20,  # Number of neighbours to set for K-NN entropy estimation.
         # Configuration for the encoder network, producing embedding vectors from observations.
         # This can be used to configure fcnet- or conv_net setups to properly process any
         # observation space. By default uses the Policy model configuration.
@@ -266,10 +268,10 @@ def start_policy_server():
         stop=None,
         checkpoint_at_end=True,
         checkpoint_freq=1,
-        verbose=3,
+        verbose=2,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_Test3",
+        name=f"{trainer_name}_Test5",
         resume="AUTO",
         mode="max",
     )
