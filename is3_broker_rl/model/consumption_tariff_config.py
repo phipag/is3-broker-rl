@@ -39,6 +39,8 @@ dqn_config = with_common_config(
                     0,  # wholesalePrice
                     0,  # ownWholesalePrice
                     np.finfo(np.float32).min,  # cashPosition
+                    0,  # consumptionShare
+                    0,  # productionShare
                     0,  # customerCount
                     0,  # marketPosition
                 ]
@@ -56,6 +58,8 @@ dqn_config = with_common_config(
                     # generous limit
                     1000,
                     np.finfo(np.float32).max,  # cashPosition
+                    1,  # consumptionShare
+                    1,  # productionShare
                     1e6,  # customerCount
                     4,  # marketPosition
                 ]
@@ -84,7 +88,7 @@ dqn_config = with_common_config(
         "replay_buffer_config": {"learning_starts": 0},
         # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
         # 168 / 14 = 12 timesteps will make sure that the capacity costs (every 168 timeslots) are associated
-        # to the action reward.
+        # to the last 12 taken actions taken.
         "n_step": 12,
         "model": {
             "fcnet_hiddens": [64],
