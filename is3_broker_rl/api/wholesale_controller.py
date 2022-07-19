@@ -68,17 +68,24 @@ class WholesaleController:
         try:
             self._check_episode_started()
             self.finished_observation = False
+            # Own cleared trades
             self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
             self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
+            # Market prices 
             self.last_obs.cleared_trade_price = self.string_to_list(request.cleared_trade_price)
             self.last_obs.cleared_trade_energy = self.string_to_list(request.cleared_trade_energy)
             self.last_obs.customer_count = request.customer_count
+            self.last_obs.total_prosumption =  float(request.total_prosumption)
+            self.last_obs.market_position = self.string_to_list(request.market_position)
+            self._log.debug(type(self.last_obs.total_prosumption))
             # TODO: Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
-            # Transform the action space from [-1:1] to [-100:100] for the price. 
-            # And transforms the action space from [0:1000] for the energy. 
-            # The sign is 
+            self._log.debug(f"Action: {action}")
+            self.last_action = action
+            # Transforms the action space from [-150:150] for the energy.
+            # Transform the action space from [-1:1] to [0:100] for the price. 
+            # The sign is applied.
             #  See powertac game specification.
             action_scaled = np.zeros((48))
             for i in range(48):
@@ -109,12 +116,32 @@ class WholesaleController:
 
     @fastapi_app.post("/log-returns")
     def log_returns(self, request: LogReturnsRequest) -> None:
-        reward = request.reward /100000
-        self._log.info(f"Called log_returns with {request.reward}.")
-        self._check_episode_started()
-        
-        self._persist_reward(reward)
-        self._policy_client.log_returns(self._episode.episode_id, reward)
+        try:
+            reward = request.reward /100000
+            # Adding reward shaping with the difference between the market prices and our prices.
+            # Percentage difference between actual and our prices?
+            
+
+            #i=0
+            #shaped_return = 0
+            #for value in self.last_action:
+            #    if i%2 == 0:
+            #        shaped_return -= abs(self.last_obs.cleared_trade_energy[int(round(i/2))] / value)
+            #    if i%2 == 1:
+#
+            #        shaped_return -= abs(self.last_obs.cleared_trade_price[int(round(i/2))-1] / value)
+            #    i+=1
+#
+            #self._log.info(f"Only shaped_reward: {shaped_return}")
+            #reward = reward + shaped_return
+            self._log.info(f"Called log_returns with {request.reward}.")
+            self._check_episode_started()
+
+            self._persist_reward(reward)
+            self._policy_client.log_returns(self._episode.episode_id, reward)
+        except Exception as e:
+            self._log.error(f"Log reward error: {e}", exc_info=True)
+            return ""
 
 
     @fastapi_app.post("/end-episode")
@@ -122,11 +149,14 @@ class WholesaleController:
         self._log.debug(f"Called end_episode with {request}.")
         self._check_episode_started()
         self.finished_observation = False
+        
         self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
         self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
         self.last_obs.cleared_trade_price = self.string_to_list(request.cleared_trade_price)
         self.last_obs.cleared_trade_energy = self.string_to_list(request.cleared_trade_energy)
         self.last_obs.customer_count = request.customer_count
+        self.last_obs.total_prosumption = float(request.total_prosumption)
+        self.last_obs.market_position = self.string_to_list(request.market_position)
         obs = self._standardize_observation(self.last_obs)
         self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
         #self.last_action_str = ""
@@ -157,10 +187,12 @@ class WholesaleController:
                 cleared_trade_price=[0]*24,  # Inputs empty values. These will be filled later. 
                 cleared_trade_energy=[0]*24,  # Inputs empty values. These will be filled later.
                 customer_count=0,
+                total_prosumption=float(0),
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
+                market_position=[0]*24,
             )
-
+            
             self.finished_observation = True
         except Exception as e:
             self._log.error(f"Observation building error: {e}", exc_info=True)
@@ -296,9 +328,13 @@ class WholesaleController:
                 cleared_trade_energy=obs.cleared_trade_energy,
                 cleared_trade_price=obs.cleared_trade_price,
                 customer_count=obs.customer_count,
+                total_prosumption = obs.total_prosumption,
+                market_position= obs.market_position,
 
             )
-
+            x= scaled_obs.total_prosumption
+            self._log.debug(f"test2 {x}")
+            self._log.debug(f"test3 {scaled_obs.to_feature_vector()}")
             self._log.debug(f"Scaled Obs: {scaled_obs}")
         except Exception as e:
             self._log.debug(f"Scaling obs error {e}", exc_info=True)
@@ -309,14 +345,17 @@ class WholesaleController:
 
 
     def string_to_list(self, input_string: str, delimeter = ";"):
+        
         splits = input_string.split(delimeter)
-        self._log.info(f"Splits {splits}")
+        #self._log.info(f"Splits {splits}")
         return_list = []
         for value in splits:
             if value != "":
                 return_list.append(float(value))
-
+    
         return return_list
+
+
 
 
 

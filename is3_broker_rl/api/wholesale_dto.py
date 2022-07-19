@@ -34,8 +34,12 @@ class Observation(BaseModel):
     cleared_trade_price: List[float] = []
     cleared_trade_energy: List[float] = []
     customer_count: int
+    total_prosumption: float
+    market_position: List[float] = []
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
+
+    # remember to change the observation space ;)
 
     def to_feature_vector(self):
         return np.concatenate(
@@ -51,6 +55,8 @@ class Observation(BaseModel):
                 np.array(self.cleared_trade_price),
                 np.array(self.cleared_trade_energy),
                 np.array([self.customer_count]),
+                np.array([self.total_prosumption]),
+                np.array(self.market_position),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
             )
@@ -74,6 +80,8 @@ class EndEpisodeRequest(BaseModel):
     cleared_trade_price: str
     cleared_trade_energy: str
     customer_count: int
+    total_prosumption: str
+    market_position: str
 
 
 class LogReturnsRequest(BaseModel):
@@ -90,3 +98,5 @@ class GetActionRequest(BaseModel):
     cleared_trade_price: str
     cleared_trade_energy: str
     customer_count: int
+    total_prosumption: str
+    market_position: str

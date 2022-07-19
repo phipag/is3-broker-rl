@@ -6,6 +6,7 @@ import os
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.env import PolicyServerInput
 from ray.tune import tune
+from ray.rllib.agents.callbacks import RE3UpdateCallbacks
 
 from is3_broker_rl.model.wholesale_util import Env_config
 
@@ -31,6 +32,8 @@ def _input(ioctx):
 def start_policy_server():
     env_config = Env_config()
     observation_space, action_space = env_config.get_gym_spaces()
+
+    
 
     trainer_name = "SAC"
     if trainer_name == "DQN":
@@ -154,9 +157,9 @@ def start_policy_server():
             
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
-            "n_step": 24,
+            "n_step": 1,
             # Number of env steps to optimize for before returning.
-            "timesteps_per_iteration": 2,
+            "timesteps_per_iteration": 1,
 
 
             # The intensity with which to update the model (vs collecting samples from
@@ -175,15 +178,14 @@ def start_policy_server():
             # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
             "training_intensity": 100,
 
-            # How many steps of the model to sample before learning starts.
-            "learning_starts": 5,
+
             # Update the replay buffer with this many samples at once. Note that this
             # setting applies per-worker if num_workers > 1.
             "rollout_fragment_length": 2,
             # Size of a batched sampled from replay buffer for training.
             "train_batch_size": 2,
             # Update the target network every `target_network_update_freq` steps.
-            "target_network_update_freq": 2,
+            "target_network_update_freq": 1,
             # === Optimization ===
             "optimization": {
                 "actor_learning_rate": 3e-2,
@@ -193,11 +195,80 @@ def start_policy_server():
             "input_evaluation": [],
             "simple_optimizer": True,
             "framework":'tf2',
-            
+                
+            "Q_model": {
+                "fcnet_hiddens": [256, 256],
+                "fcnet_activation": "relu",
+                "post_fcnet_hiddens": [],
+                "post_fcnet_activation": None,
+                "custom_model": None,  # Use this to define custom Q-model(s).
+                "custom_model_config": {},
+            },
+            # Model options for the policy function (see `Q_model` above for details).
+            # The difference to `Q_model` above is that no action concat'ing is
+            # performed before the post_fcnet stack.
+            "policy_model": {
+                "fcnet_hiddens": [256, 256],
+                "fcnet_activation": "relu",
+                "post_fcnet_hiddens": [],
+                "post_fcnet_activation": None,
+                "custom_model": None,  # Use this to define a custom policy model.
+                "custom_model_config": {},
+            },
+            # === Replay buffer ===
+        # Size of the replay buffer (in time steps).
+        "replay_buffer_config": {
+            "_enable_replay_buffer_api": False,
+            "type": "MultiAgentReplayBuffer",
+            "capacity": int(1e6),
+            # How many steps of the model to sample before learning starts.
+            "learning_starts": 100,
+        },
+        "store_buffer_in_checkpoints": True,
+        # If True prioritized replay buffer will be used.
+        "prioritized_replay": True,
+        "prioritized_replay_alpha": 0.6,
+        "prioritized_replay_beta": 0.4,
+        "prioritized_replay_eps": 1e-6,
+        # Whether to LZ4 compress observations
+        "compress_observations": True
         }
+        
 
+
+        
     config = with_common_config(config)
+    # See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
+    class RE3Callbacks(RE3UpdateCallbacks, config["callbacks"]):
+        pass
 
+    config["callbacks"] = RE3Callbacks
+    config["exploration_config"] = {
+        "type": "RE3",
+        # the dimensionality of the observation embedding vectors in latent space.
+        "embeds_dim": 128,
+        "rho": 0.1, # Beta decay factor, used for on-policy algorithm.
+        "k_nn": 50, # Number of neighbours to set for K-NN entropy estimation.
+        # Configuration for the encoder network, producing embedding vectors from observations.
+        # This can be used to configure fcnet- or conv_net setups to properly process any
+        # observation space. By default uses the Policy model configuration.
+        "encoder_net_config": {
+            "fcnet_hiddens": [],
+            "fcnet_activation": "relu",
+        },
+        # Hyperparameter to choose between exploration and exploitation. A higher value of beta adds
+        # more importance to the intrinsic reward, as per the following equation
+        # `reward = r + beta * intrinsic_reward`
+        "beta": 0.2,
+        # Schedule to use for beta decay, one of constant" or "linear_decay".
+        "beta_schedule": 'constant',
+        # Specify, which exploration sub-type to use (usually, the algo's "default"
+        # exploration, e.g. EpsilonGreedy for DQN, StochasticSampling for PG/SAC).
+        "sub_exploration": {
+            "type": "StochasticSampling",
+        }
+    }
+    # TODO: Enable experience replay saving.
     log = logging.getLogger(__name__)
     log.debug("Starting training loop ...")
     tune.run(
@@ -209,7 +280,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_Test2",
+        name=f"{trainer_name}_Test3",
         resume="AUTO",
         mode="max",
 
