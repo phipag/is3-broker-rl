@@ -84,9 +84,18 @@ dqn_config = with_common_config(
         "lr": 1e-2,
         # Discount factor for future reward (default value is 0.99)
         "gamma": 0.99,
+        "explore": True,
+        "exploration_config": {
+            "type": "EpsilonGreedy",
+            "initial_epsilon": 1.0,
+            "final_epsilon": 0.02,
+            "epsilon_timesteps": 1500,
+        },
         # DQN
         "replay_buffer_config": {
-            "learning_starts": 0
+            "type": "MultiAgentPrioritizedReplayBuffer",
+            # Wait at least one episode before starting learning.
+            "learning_starts": 12,
         },
         "store_buffer_in_checkpoints": True,
         # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
