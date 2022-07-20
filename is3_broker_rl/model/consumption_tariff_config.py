@@ -85,8 +85,10 @@ dqn_config = with_common_config(
         # Discount factor for future reward (default value is 0.99)
         "gamma": 0.99,
         # DQN
+        "replay_buffer_config": {
+            "learning_starts": 0
+        },
         "store_buffer_in_checkpoints": True,
-        "learning_starts": 0,
         # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
         # 168 / 14 = 12 timesteps will make sure that the capacity costs (every 168 timeslots) are associated
         # to the last 12 taken actions taken.
