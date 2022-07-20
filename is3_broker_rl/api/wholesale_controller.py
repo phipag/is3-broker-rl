@@ -92,7 +92,7 @@ class WholesaleController:
             action_scaled = np.zeros((48))
             for i in range(48):
                 if i % 2 == 0:
-                    action_scaled[i] = action[i] * 150
+                    action_scaled[i] = action[i] * 50
                     temp_action = action_scaled[i]
                 else:
                     if temp_action < 0:
