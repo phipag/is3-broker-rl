@@ -124,7 +124,7 @@ class WholesaleController:
             final_market_balance = request.final_market_balance
             i=0
 
-            shaped_return = abs( final_market_balance - sum_mWh) * -1
+            shaped_return = abs( final_market_balance - sum_mWh) / -100
             self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
             reward = reward + shaped_return
             self._log.info(f"Called log_returns with {request.reward}.")
