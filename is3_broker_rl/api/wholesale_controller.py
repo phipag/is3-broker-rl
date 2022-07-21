@@ -118,20 +118,24 @@ class WholesaleController:
     def log_returns(self, request: LogReturnsRequest) -> None:
         try:
             reward = request.reward / 100000
+            balancing_reward = request.balancing_reward / 100000
+            wholesale_reward =request.wholesale_reward / 100000
+            tariff_reward = request.tariff_reward / 100000
             # Adding reward shaping with the difference between the market prices and our prices.
             # Percentage difference between actual and our prices?
             sum_mWh = request.sum_mWh
             final_market_balance = request.final_market_balance
             i=0
-
+           
             shaped_return = abs( final_market_balance - sum_mWh) / -100
+            final_reward = balancing_reward + wholesale_reward #+ tariff_reward
             self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
-            reward = reward + shaped_return
-            self._log.info(f"Called log_returns with {request.reward}.")
+            #reward = reward + shaped_return
+            self._log.info(f"Called log_returns with {final_reward}.")
             self._check_episode_started()
 
-            self._persist_reward(reward)
-            self._policy_client.log_returns(self._episode.episode_id, reward)
+            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, shaped_return)
+            self._policy_client.log_returns(self._episode.episode_id, final_reward)
         except Exception as e:
             self._log.error(f"Log reward error: {e}", exc_info=True)
             return ""
@@ -205,7 +209,7 @@ class WholesaleController:
         except Exception as e:
             self._log.debug(f"Persist action error {e}", exc_info=True)
 
-    def _persist_reward(self, reward: float) -> None:
+    def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, shaped_return: float) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         observation = self.last_obs.json()
@@ -216,6 +220,10 @@ class WholesaleController:
             {
                 "episode_id": self._episode.episode_id,
                 "reward": reward,
+                "balancing_reward":balancing_reward,
+                "wholesale_reward":wholesale_reward,
+                "tariff_reward":tariff_reward,
+                "shaped_return": shaped_return,
                 "observation": observation,
                 "last_action": action,
             },

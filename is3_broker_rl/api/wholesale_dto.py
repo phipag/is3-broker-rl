@@ -87,6 +87,9 @@ class EndEpisodeRequest(BaseModel):
 class LogReturnsRequest(BaseModel):
     episode_id: str
     reward: float
+    balancing_reward: float
+    wholesale_reward: float
+    tariff_reward: float
     sum_mWh: float
     final_market_balance: float
 

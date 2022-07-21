@@ -154,10 +154,9 @@ def start_policy_server():
             # do in the top-level `model` dict.
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
-            "n_step": 24,
+            "n_step": 25,
             # Number of env steps to optimize for before returning.
             "timesteps_per_iteration": 100,
-            #"eager_tracing":True,
             # The intensity with which to update the model (vs collecting samples from
             # the env). If None, uses the "natural" value of:
             # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
@@ -175,16 +174,16 @@ def start_policy_server():
             "training_intensity": 100,
             # Update the replay buffer with this many samples at once. Note that this
             # setting applies per-worker if num_workers > 1.
-            "rollout_fragment_length": 2,
+            "rollout_fragment_length": 1,
             # Size of a batched sampled from replay buffer for training.
-            "train_batch_size": 16,
+            "train_batch_size": 32,
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
             # === Optimization ===
             "optimization": {
-                "actor_learning_rate": 3e-2,
-                "critic_learning_rate": 3e-2,
-                "entropy_learning_rate": 3e-2,
+                "actor_learning_rate": 3e-3,
+                "critic_learning_rate": 3e-3,
+                "entropy_learning_rate": 3e-3,
             },
             "input_evaluation": [],
             #"simple_optimizer": True,
@@ -212,19 +211,22 @@ def start_policy_server():
             # Size of the replay buffer (in time steps).
             "replay_buffer_config": {
                 "_enable_replay_buffer_api": True,
-                "type": "MultiAgentReplayBuffer",
+                "type": "MultiAgentPrioritizedReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 100,
+                "learning_starts": 1,
+                "storage_unit": "timesteps",
+            
+            
+                # If True prioritized replay buffer will be used.
+                #"prioritized_replay": True,
+                "prioritized_replay_alpha": 0.6,
+                "prioritized_replay_beta": 0.4,
+                "prioritized_replay_eps": 1e-6,
+                # Whether to LZ4 compress observations
+                "compress_observations": True,
             },
             "store_buffer_in_checkpoints": True,
-            # If True prioritized replay buffer will be used.
-            "prioritized_replay": True,
-            "prioritized_replay_alpha": 0.6,
-            "prioritized_replay_beta": 0.4,
-            "prioritized_replay_eps": 1e-6,
-            # Whether to LZ4 compress observations
-            "compress_observations": True,
             
         }
 
@@ -268,10 +270,11 @@ def start_policy_server():
         stop=None,
         checkpoint_at_end=True,
         checkpoint_freq=1,
-        verbose=2,
+        verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_Test5",
+        name=f"{trainer_name}_fixedReward_Test3",
         resume="AUTO",
         mode="max",
-    )
+        fail_fast=True,
+        )
