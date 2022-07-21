@@ -6,10 +6,10 @@ from typing import Dict, Tuple
 
 import joblib
 import numpy as np
+from gym.wrappers.normalize import RunningMeanStd
 from ray.rllib import Policy, RolloutWorker, SampleBatch
 from ray.rllib.agents import DefaultCallbacks
 from ray.rllib.evaluation import Episode
-from ray.rllib.utils.filter import MeanStdFilter
 from ray.rllib.utils.typing import AgentID, PolicyID
 
 import is3_broker_rl
@@ -26,7 +26,7 @@ class NormalizeRewardCallback(DefaultCallbacks):
         if os.path.exists(NormalizeRewardCallback._REWARD_DUMP_PATH):
             self._reward_normalizer = joblib.load(NormalizeRewardCallback._REWARD_DUMP_PATH)
         else:
-            self._reward_normalizer = MeanStdFilter(shape=(1,))
+            self._reward_normalizer = RunningMeanStd(shape=())
 
     def on_postprocess_trajectory(
         self,
@@ -60,12 +60,15 @@ class NormalizeRewardCallback(DefaultCallbacks):
                 trajectory data. You should not mutate this object.
             kwargs: Forward compatibility placeholder.
         """
-        print("Current reward normalizer stats:", self._reward_normalizer)
-        print("Original rewards:", postprocessed_batch["rewards"])
-        # We normalize each reward separately because we do not want a column-wise normalization
-        postprocessed_batch["rewards"] = np.array(
-            [self._reward_normalizer([reward])[0] for reward in postprocessed_batch["rewards"]]
+        print(
+            f"Current reward normalizer stats: mean={self._reward_normalizer.mean}, var={self._reward_normalizer.var}"
         )
+        print("Original rewards:", postprocessed_batch["rewards"])
+        # We normalize each reward like the official gym env wrapper would do it
+        # https://github.com/openai/gym/blob/8e812e1de501ae359f16ce5bcd9a6f40048b342f/gym/wrappers/normalize.py#L168
+        self._reward_normalizer.update(postprocessed_batch["rewards"])
+        # We add 1e-8 to avoid division by zero
+        postprocessed_batch["rewards"] = postprocessed_batch["rewards"] / np.sqrt(self._reward_normalizer.var + 1e-8)
         print("Normalized rewards:", postprocessed_batch["rewards"])
         joblib.dump(self._reward_normalizer, NormalizeRewardCallback._REWARD_DUMP_PATH)
         if self.legacy_callbacks.get("on_postprocess_traj"):
