@@ -134,7 +134,7 @@ class WholesaleController:
             self._log.info(f"Called log_returns with {final_reward}.")
             self._check_episode_started()
 
-            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, shaped_return)
+            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, shaped_return, sum_mWh)
             self._policy_client.log_returns(self._episode.episode_id, final_reward)
         except Exception as e:
             self._log.error(f"Log reward error: {e}", exc_info=True)
@@ -209,7 +209,7 @@ class WholesaleController:
         except Exception as e:
             self._log.debug(f"Persist action error {e}", exc_info=True)
 
-    def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, shaped_return: float) -> None:
+    def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, shaped_return: float, sum_mWh: float) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         observation = self.last_obs.json()
@@ -226,6 +226,7 @@ class WholesaleController:
                 "shaped_return": shaped_return,
                 "observation": observation,
                 "last_action": action,
+                "sum_mWh": sum_mWh,
             },
             index=[0],
         )

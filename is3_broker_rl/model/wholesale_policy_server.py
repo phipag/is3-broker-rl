@@ -261,7 +261,7 @@ def start_policy_server():
             "type": "StochasticSampling",
         },
     }
-    # TODO: Enable experience replay saving.
+    
     log = logging.getLogger(__name__)
     log.debug("Starting training loop ...")
     tune.run(
@@ -273,8 +273,9 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_fixedReward_Test3",
-        resume="AUTO",
+        name=f"{trainer_name}_fixedReward_Test4",
+        #resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         fail_fast=True,
+        restore="logs/SAC_fixedReward_Test4/SAC_None_f615c_00000_0_2022-07-22_14-58-20/checkpoint_000013/checkpoint-13"
         )
