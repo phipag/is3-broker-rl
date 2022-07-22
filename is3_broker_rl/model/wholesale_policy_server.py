@@ -1,13 +1,17 @@
 # `InputReader` generator (returns None if no input reader is needed on
 # the respective worker).
+from functools import partial
+from gc import callbacks
 import logging
 import os
+import ray
 
 from ray.rllib.agents.callbacks import RE3UpdateCallbacks
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.env import PolicyServerInput
 from ray.tune import tune
-
+from is3_broker_rl.model.normalize_reward_callback import WholesaleNormalizeRewardCallback
+from ray.rllib.agents.callbacks import MultiCallbacks
 from is3_broker_rl.model.wholesale_util import Env_config
 
 SERVER_ADDRESS = "localhost"
@@ -30,6 +34,7 @@ def _input(ioctx):
 
 
 def start_policy_server():
+    
     env_config = Env_config()
     observation_space, action_space = env_config.get_gym_spaces()
 
@@ -227,21 +232,31 @@ def start_policy_server():
                 "compress_observations": True,
             },
             "store_buffer_in_checkpoints": True,
-            
+            #"callbacks" : MultiCallbacks([RE3Callbacks(), WholesaleNormalizeRewardCallback()]),
         }
 
     config = with_common_config(config)
     # See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
-    class RE3Callbacks(RE3UpdateCallbacks, config["callbacks"]):
-        pass
-
-    config["callbacks"] = RE3Callbacks
+    
+    config["callbacks"] = MultiCallbacks(
+        [
+            config["callbacks"],
+            partial(
+                RE3UpdateCallbacks,
+                embeds_dim=128,
+                beta_schedule="linear_decay",
+                k_nn=50,
+            ),
+            WholesaleNormalizeRewardCallback,
+        ]
+    )
+    #config["callbacks"] =,
     config["exploration_config"] = {
         "type": "RE3",
         # the dimensionality of the observation embedding vectors in latent space.
         "embeds_dim": 128,
         "rho": 0.1,  # Beta decay factor, used for on-policy algorithm.
-        "k_nn": 20,  # Number of neighbours to set for K-NN entropy estimation.
+        "k_nn": 50,  # Number of neighbours to set for K-NN entropy estimation.
         # Configuration for the encoder network, producing embedding vectors from observations.
         # This can be used to configure fcnet- or conv_net setups to properly process any
         # observation space. By default uses the Policy model configuration.
@@ -261,21 +276,23 @@ def start_policy_server():
             "type": "StochasticSampling",
         },
     }
+
     
     log = logging.getLogger(__name__)
     log.debug("Starting training loop ...")
     tune.run(
         trainer_name,
         config=config,
+        #callbacks=[WholesaleNormalizeRewardCallback],
         stop=None,
         checkpoint_at_end=True,
         checkpoint_freq=1,
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_fixedReward_Test4",
-        #resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
+        name=f"{trainer_name}_fixedReward_Test5",
+        resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         fail_fast=True,
-        restore="logs/SAC_fixedReward_Test4/SAC_None_f615c_00000_0_2022-07-22_14-58-20/checkpoint_000013/checkpoint-13"
+        #restore="logs/SAC_fixedReward_Test4/SAC_None_f615c_00000_0_2022-07-22_14-58-20/checkpoint_000013/checkpoint-13"
         )
