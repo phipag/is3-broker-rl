@@ -1,8 +1,10 @@
 # `InputReader` generator (returns None if no input reader is needed on
 # the respective worker).
 import os
+from abc import ABCMeta, abstractmethod
+from os import PathLike
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import joblib
 import numpy as np
@@ -15,16 +17,16 @@ from ray.rllib.utils.typing import AgentID, PolicyID
 import is3_broker_rl
 
 
-class NormalizeRewardCallback(DefaultCallbacks):
-    _REWARD_DUMP_PATH = (
-        Path(os.environ.get("DATA_DIR", Path(is3_broker_rl.__file__).parent.parent / "data"))
-        / "consumption_reward_mean_std.joblib"
-    )
+class NormalizeRewardCallback(DefaultCallbacks, metaclass=ABCMeta):
+    @property
+    @abstractmethod
+    def _reward_dump_path(self) -> Union[PathLike, str]:
+        raise NotImplemented
 
     def __init__(self, legacy_callbacks_dict: Dict[str, callable] = None):
         super().__init__(legacy_callbacks_dict)
-        if os.path.exists(NormalizeRewardCallback._REWARD_DUMP_PATH):
-            self._reward_normalizer = joblib.load(NormalizeRewardCallback._REWARD_DUMP_PATH)
+        if os.path.exists(self._reward_dump_path):
+            self._reward_normalizer = joblib.load(self._reward_dump_path)
         else:
             self._reward_normalizer = RunningMeanStd(shape=())
 
@@ -81,3 +83,21 @@ class NormalizeRewardCallback(DefaultCallbacks):
                     "all_pre_batches": original_batches,
                 }
             )
+
+
+class ConsumptionNormalizeRewardCallback(NormalizeRewardCallback):
+    @property
+    def _reward_dump_path(self) -> Union[PathLike, str]:
+        return (
+            Path(os.environ.get("DATA_DIR", Path(is3_broker_rl.__file__).parent.parent / "data"))
+            / "consumption_reward_mean_std.joblib"
+        )
+
+
+class WholesaleNormalizeRewardCallback(NormalizeRewardCallback):
+    @property
+    def _reward_dump_path(self) -> Union[PathLike, str]:
+        return (
+            Path(os.environ.get("DATA_DIR", Path(is3_broker_rl.__file__).parent.parent / "data"))
+            / "wholesale_reward_mean_std.joblib"
+        )

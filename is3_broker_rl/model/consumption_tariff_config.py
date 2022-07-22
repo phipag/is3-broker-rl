@@ -6,7 +6,9 @@ from ray.rllib.agents import with_common_config
 from ray.rllib.env import PolicyServerInput
 from ray.rllib.offline import IOContext
 
-from is3_broker_rl.model.normalize_reward_callback import NormalizeRewardCallback
+from is3_broker_rl.model.normalize_reward_callback import (
+    ConsumptionNormalizeRewardCallback,
+)
 
 SERVER_ADDRESS = "localhost"
 SERVER_BASE_PORT = 9900
@@ -70,7 +72,7 @@ dqn_config = with_common_config(
         "observation_filter": "MeanStdFilter",
         "action_space": gym.spaces.Discrete(5),
         # Normalize the rewards
-        "callbacks": NormalizeRewardCallback,
+        "callbacks": ConsumptionNormalizeRewardCallback,
         # Use n worker processes to listen on different ports.
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
