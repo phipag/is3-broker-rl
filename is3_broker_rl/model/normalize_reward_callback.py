@@ -72,7 +72,7 @@ class NormalizeRewardCallback(DefaultCallbacks, metaclass=ABCMeta):
         # We add 1e-8 to avoid division by zero
         postprocessed_batch["rewards"] = postprocessed_batch["rewards"] / np.sqrt(self._reward_normalizer.var + 1e-8)
         print("Normalized rewards:", postprocessed_batch["rewards"])
-        joblib.dump(self._reward_normalizer, NormalizeRewardCallback._REWARD_DUMP_PATH)
+        joblib.dump(self._reward_normalizer, self._reward_dump_path)
         if self.legacy_callbacks.get("on_postprocess_traj"):
             self.legacy_callbacks["on_postprocess_traj"](
                 {
