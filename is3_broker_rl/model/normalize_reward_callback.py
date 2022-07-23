@@ -21,7 +21,7 @@ class NormalizeRewardCallback(DefaultCallbacks, metaclass=ABCMeta):
     @property
     @abstractmethod
     def _reward_dump_path(self) -> Union[PathLike, str]:
-        raise NotImplemented
+        raise NotImplementedError
 
     def __init__(self, legacy_callbacks_dict: Dict[str, callable] = None):
         super().__init__(legacy_callbacks_dict)
