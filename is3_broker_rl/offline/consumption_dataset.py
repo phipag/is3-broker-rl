@@ -1,6 +1,7 @@
 import re
 from concurrent import futures
 from functools import reduce
+from io import StringIO
 from time import time
 from typing import List
 
@@ -30,7 +31,7 @@ def parse_tariff_market_share_df(broker_name: str) -> pd.DataFrame:
 
     preprocessed_dfs: List[pd.DataFrame] = []
     for df in raw_dfs:
-        # Filter for our own consumption
+        # Filter for our own consumption.
         df_consumption_own_broker = (
             df[["game_id", "timeslot", "broker", "type", "subscriptions"]]
             .where(df["broker"] == broker_name)
@@ -42,9 +43,9 @@ def parse_tariff_market_share_df(broker_name: str) -> pd.DataFrame:
             .rename(columns={"subscriptions": "customerCount"})
         )
         if df_consumption_own_broker.empty:
-            # Continue if we did not participate in the game
+            # Continue if we did not participate in the game.
             continue
-        # Filter for the consumption of the other brokers
+        # Filter for the consumption of the other brokers.
         df_consumption_other_brokers = (
             df[["game_id", "timeslot", "broker", "type", "subscriptions"]]
             .where(df["broker"] != broker_name)
@@ -55,14 +56,14 @@ def parse_tariff_market_share_df(broker_name: str) -> pd.DataFrame:
             .sum()
             .rename(columns={"subscriptions": "customerCount"})
         )
-        # Calculate our consumption share
+        # Calculate our consumption share.
         df_consumption_own_broker["consumptionShare"] = df_consumption_own_broker["customerCount"] / (
-            # 1e-8 is to avoid division by zero if there is no consumption in a timeslot
+            # 1e-8 is to avoid division by zero if there is no consumption in a timeslot.
             df_consumption_own_broker["customerCount"]
             + df_consumption_other_brokers["customerCount"]
             + 1e-8
         )
-        # Filter for our own production
+        # Filter for our own production.
         df_production_own_broker = (
             df[["game_id", "timeslot", "broker", "type", "subscriptions"]]
             .where(df["broker"] == broker_name)
@@ -75,7 +76,7 @@ def parse_tariff_market_share_df(broker_name: str) -> pd.DataFrame:
             .sum()
             .rename(columns={"subscriptions": "customerCount"})
         )
-        # Filter for the production of the other brokers
+        # Filter for the production of the other brokers.
         df_production_other_brokers = (
             df[["game_id", "timeslot", "broker", "type", "subscriptions"]]
             .where(df["broker"] != broker_name)
@@ -88,15 +89,15 @@ def parse_tariff_market_share_df(broker_name: str) -> pd.DataFrame:
             .sum()
             .rename(columns={"subscriptions": "customerCount"})
         )
-        # Calculate our own production share
+        # Calculate our own production share.
         df_consumption_own_broker["productionShare"] = df_production_own_broker["customerCount"] / (
-            # 1e-8 is to avoid division by zero if there is no consumption in a timeslot
+            # 1e-8 is to avoid division by zero if there is no consumption in a timeslot.
             df_production_own_broker["customerCount"]
             + df_production_other_brokers["customerCount"]
             + 1e-8
         )
         # When there are NaN values it means that our broker had not tariff active at that timeslot which is equal to a
-        # 0% share
+        # 0% share.
         df_consumption_own_broker[["consumptionShare", "productionShare"]] = df_consumption_own_broker[
             ["consumptionShare", "productionShare"]
         ].fillna(0.0)
@@ -112,7 +113,7 @@ def parse_tariff_market_share_df(broker_name: str) -> pd.DataFrame:
         df_consumption_own_broker = df_consumption_own_broker.loc[repeat_mask].reset_index(drop=True)
         # We do not want to repeat the last timeslot and drop it again here.
         df_consumption_own_broker = df_consumption_own_broker.drop(df_consumption_own_broker.tail(5).index, axis=0)
-        # Now, we still need to make the timeslot strictly increasing by one
+        # Now, we still need to make the timeslot strictly increasing by one.
         first_timeslot = df_consumption_own_broker.iloc[0, 1]
         last_timeslot = df_consumption_own_broker.iloc[-1, 1]
         df_consumption_own_broker["timeslot"] = range(first_timeslot, last_timeslot + 1)
@@ -185,22 +186,72 @@ def parse_market_price_stats_df() -> pd.DataFrame:
         sep=",",
         header=None,
         names=["timeslot", *[f"mwh_price.{i}" for i in range(24)]],
-        # Column 0 is timeslot and the other 24 are the clearing prices on the wholesale market
+        # Column 0 is timeslot and the other 24 are the clearing prices on the wholesale market.
         usecols=[0, *range(3, 24 + 3)],
     )
     market_price_df = pd.concat(raw_dfs).set_index(["game_id", "timeslot"], drop=True)
+    mwh_tuple_regex = re.compile(r"\[(-?\d+\.?\d*)\s(-?\d+\.?\d*)]")
     for col in market_price_df.columns:
         if col.startswith("mwh_price"):
             market_price_df[col] = (
                 market_price_df[col]
-                .apply(lambda value: re.match(r"\[(-?\d+\.?\d*)\s(-?\d+\.?\d*)]", value).groups()[1])
-                .astype("float32")
+                # The second entry of the [mwh price] tuple is the wholesale clearing price.
+                .apply(lambda value: mwh_tuple_regex.match(value).groups()[1]).astype("float32")
             )
-    # We want to ignore zero values for calculation of the mean wholesale price and therefore set them to nan
+    # We want to ignore zero values for calculation of the mean wholesale price and therefore set them to nan.
     market_price_df = market_price_df.replace(0.0, np.nan)
     market_price_df["wholesalePrice"] = market_price_df.mean(axis=1)
 
     return market_price_df[["wholesalePrice"]]
+
+
+def parse_broker_market_prices_df(broker_name: str) -> pd.DataFrame:
+    raw_dfs = pd_glob_read_csv(
+        search_path=BASE_PATH,
+        glob="**/*broker-market-prices.csv",
+        # This CSV file is invalid because of the comma in the mwh_price tuples. Therefore, we parse it as a plain
+        # string per row and escape the comma manually.
+        sep="?",
+    )
+
+    mwh_tuple_regex = re.compile(r"(\[-?\d+\.?\d*)(,)(\s-?\d+\.?\d*])")
+    preprocessed_dfs: List[pd.DataFrame] = []
+    for invalid_df in raw_dfs:
+        # Omit and save the only valid column "game_id" for later.
+        game_id = invalid_df["game_id"]
+        invalid_df = invalid_df.drop(columns="game_id")
+
+        # Escape the comma in the string values of mwh_price tuples manually using regex.
+        broker_market_price_string = mwh_tuple_regex.sub(
+            "\g<1>\\\\\g<2>\\\\\g<3>", invalid_df.to_string(index=False)  # noqa: W605
+        )
+        # Read the dataframe again from the escaped string.
+        invalid_df = pd.read_csv(StringIO(broker_market_price_string), sep=",", escapechar="\\")
+        invalid_df.columns = [col.strip() for col in invalid_df.columns]
+        # Append the game_id again.
+        invalid_df["game_id"] = game_id
+
+        preprocessed_dfs.append(invalid_df)
+
+    broker_market_price_df = pd.concat(preprocessed_dfs)
+    # Replace the mwh_price tuple by the ownWholesalePrice value only
+    broker_market_price_df = (
+        broker_market_price_df[["game_id", "ts", broker_name]]
+        # Games where the broker did not participate yield nan values.
+        .dropna(axis=0)
+        .rename(columns={"ts": "timeslot", broker_name: "ownWholesalePrice"})
+        .set_index(["game_id", "timeslot"], drop=True)
+    )
+    broker_market_price_df["ownWholesalePrice"] = (
+        broker_market_price_df["ownWholesalePrice"]
+        .str.strip()
+        # The second entry of the [mwh, price] tuple is the own wholesale price.
+        .apply(lambda value: re.match(r"\[(-?\d+\.?\d*),\s(-?\d+\.?\d*)]", value).groups()[1])
+        .astype("float32")
+        .abs()
+    )
+
+    return broker_market_price_df
 
 
 def main():
@@ -211,6 +262,7 @@ def main():
         tariff_mkt_share_df = executor.submit(parse_tariff_market_share_df, "TUC_TAC")
         production_consumption_df = executor.submit(parse_production_consumption_df, "TUC_TAC")
         market_price_df = executor.submit(parse_market_price_stats_df)
+        broker_market_prices_df = executor.submit(parse_broker_market_prices_df, "TUC_TAC")
 
     observation_df = reduce(
         lambda left_df, right_df: pd.merge(left_df, right_df, how="inner", left_index=True, right_index=True),
@@ -220,6 +272,7 @@ def main():
             tariff_mkt_share_df.result(),
             production_consumption_df.result(),
             market_price_df.result(),
+            broker_market_prices_df.result(),
         ],
     )
     print(f"Execution duration: {time() - start:2f}s")
