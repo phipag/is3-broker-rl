@@ -176,7 +176,7 @@ def start_policy_server():
             #   -> will make sure that replay+train op will be executed 4x as
             #      often as rollout+insert op (4 * 250 = 1000).
             # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
-            "training_intensity": 100,
+            #"training_intensity": 100,
             # Update the replay buffer with this many samples at once. Note that this
             # setting applies per-worker if num_workers > 1.
             "rollout_fragment_length": 1,
@@ -194,7 +194,7 @@ def start_policy_server():
             #"simple_optimizer": True,
             "framework": "tf2",
             "Q_model": {
-                "fcnet_hiddens": [256, 256],
+                "fcnet_hiddens": [256, 256, 256, 256],
                 "fcnet_activation": "relu",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
@@ -205,7 +205,7 @@ def start_policy_server():
             # The difference to `Q_model` above is that no action concat'ing is
             # performed before the post_fcnet stack.
             "policy_model": {
-                "fcnet_hiddens": [256, 256],
+                "fcnet_hiddens": [256, 256, 256, 256],
                 "fcnet_activation": "relu",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
@@ -225,8 +225,8 @@ def start_policy_server():
             
                 # If True prioritized replay buffer will be used.
                 #"prioritized_replay": True,
-                "prioritized_replay_alpha": 0.6,
-                "prioritized_replay_beta": 0.4,
+                "prioritized_replay_alpha": 0.7,
+                "prioritized_replay_beta": 0.2,
                 "prioritized_replay_eps": 1e-6,
                 # Whether to LZ4 compress observations
                 "compress_observations": True,
@@ -290,7 +290,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_fixedReward_Test5",
+        name=f"{trainer_name}_fixedReward_plus_largerNN_Test6",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         fail_fast=True,
