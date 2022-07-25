@@ -5,7 +5,8 @@ from gc import callbacks
 import logging
 import os
 import ray
-
+import tensorflow as tf
+from tensorflow.nn import leaky_relu
 from ray.rllib.agents.callbacks import RE3UpdateCallbacks
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.env import PolicyServerInput
@@ -39,6 +40,9 @@ def start_policy_server():
     observation_space, action_space = env_config.get_gym_spaces()
 
     trainer_name = "SAC"
+    enable_RE3_exploration = False
+
+
     if trainer_name == "DQN":
         config = {
             "env": None,
@@ -161,7 +165,7 @@ def start_policy_server():
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
             "n_step": 25,
             # Number of env steps to optimize for before returning.
-            "timesteps_per_iteration": 100,
+            "timesteps_per_iteration": 1,
             # The intensity with which to update the model (vs collecting samples from
             # the env). If None, uses the "natural" value of:
             # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
@@ -176,19 +180,20 @@ def start_policy_server():
             #   -> will make sure that replay+train op will be executed 4x as
             #      often as rollout+insert op (4 * 250 = 1000).
             # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
-            #"training_intensity": 100,
+            "training_intensity": 100,
             # Update the replay buffer with this many samples at once. Note that this
             # setting applies per-worker if num_workers > 1.
-            "rollout_fragment_length": 1,
+            
+            "rollout_fragment_length": 8,
             # Size of a batched sampled from replay buffer for training.
-            "train_batch_size": 32,
+            "train_batch_size": 8,
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
             # === Optimization ===
             "optimization": {
-                "actor_learning_rate": 3e-3,
-                "critic_learning_rate": 3e-3,
-                "entropy_learning_rate": 3e-3,
+                "actor_learning_rate": 3e-4,
+                "critic_learning_rate": 3e-4,
+                "entropy_learning_rate": 3e-5,
             },
             "input_evaluation": [],
             #"simple_optimizer": True,
@@ -225,20 +230,26 @@ def start_policy_server():
             
                 # If True prioritized replay buffer will be used.
                 #"prioritized_replay": True,
-                "prioritized_replay_alpha": 0.7,
+                "prioritized_replay_alpha": 0.5,
                 "prioritized_replay_beta": 0.2,
-                "prioritized_replay_eps": 1e-6,
+                "prioritized_replay_eps": 1e-5,
                 # Whether to LZ4 compress observations
                 "compress_observations": True,
             },
             "store_buffer_in_checkpoints": True,
+            "tau" : 5e-4,
+            "initial_alpha": 0.8,
+            "target_entropy" :"auto"
             #"callbacks" : MultiCallbacks([RE3Callbacks(), WholesaleNormalizeRewardCallback()]),
         }
 
-    config = with_common_config(config)
+    
     # See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
     
-    config["callbacks"] = MultiCallbacks(
+    config = with_common_config(config)
+    #config["callbacks"] =,
+    if enable_RE3_exploration == True:
+        config["callbacks"] = MultiCallbacks(
         [
             config["callbacks"],
             partial(
@@ -249,33 +260,34 @@ def start_policy_server():
             ),
             WholesaleNormalizeRewardCallback,
         ]
-    )
-    #config["callbacks"] =,
-    config["exploration_config"] = {
-        "type": "RE3",
-        # the dimensionality of the observation embedding vectors in latent space.
-        "embeds_dim": 128,
-        "rho": 0.1,  # Beta decay factor, used for on-policy algorithm.
-        "k_nn": 50,  # Number of neighbours to set for K-NN entropy estimation.
-        # Configuration for the encoder network, producing embedding vectors from observations.
-        # This can be used to configure fcnet- or conv_net setups to properly process any
-        # observation space. By default uses the Policy model configuration.
-        "encoder_net_config": {
-            "fcnet_hiddens": [],
-            "fcnet_activation": "relu",
-        },
-        # Hyperparameter to choose between exploration and exploitation. A higher value of beta adds
-        # more importance to the intrinsic reward, as per the following equation
-        # `reward = r + beta * intrinsic_reward`
-        "beta": 0.2,
-        # Schedule to use for beta decay, one of constant" or "linear_decay".
-        "beta_schedule": "constant",
-        # Specify, which exploration sub-type to use (usually, the algo's "default"
-        # exploration, e.g. EpsilonGreedy for DQN, StochasticSampling for PG/SAC).
-        "sub_exploration": {
-            "type": "StochasticSampling",
-        },
-    }
+        )
+        config["exploration_config"] = {
+            "type": "RE3",
+            # the dimensionality of the observation embedding vectors in latent space.
+            "embeds_dim": 128,
+            "rho": 0.01,  # Beta decay factor, used for on-policy algorithm.
+            "k_nn": 50,  # Number of neighbours to set for K-NN entropy estimation.
+            # Configuration for the encoder network, producing embedding vectors from observations.
+            # This can be used to configure fcnet- or conv_net setups to properly process any
+            # observation space. By default uses the Policy model configuration.
+            "encoder_net_config": {
+                "fcnet_hiddens": [],
+                "fcnet_activation": "relu",
+            },
+            # Hyperparameter to choose between exploration and exploitation. A higher value of beta adds
+            # more importance to the intrinsic reward, as per the following equation
+            # `reward = r + beta * intrinsic_reward`
+            "beta": 0.4,
+            # Schedule to use for beta decay, one of constant" or "linear_decay".
+            "beta_schedule": "linear_decay",
+            # Specify, which exploration sub-type to use (usually, the algo's "default"
+            # exploration, e.g. EpsilonGreedy for DQN, StochasticSampling for PG/SAC).
+            "sub_exploration": {
+                "type": "StochasticSampling",
+            },
+        }
+    else:
+         config["callbacks"] = WholesaleNormalizeRewardCallback
 
     
     log = logging.getLogger(__name__)
@@ -286,13 +298,13 @@ def start_policy_server():
         #callbacks=[WholesaleNormalizeRewardCallback],
         stop=None,
         checkpoint_at_end=True,
-        checkpoint_freq=1,
+        checkpoint_freq=50,
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_fixedReward_plus_largerNN_Test6",
+        name=f"{trainer_name}_fixedReward_plus_largerNN_nore3_Test1",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         fail_fast=True,
-        #restore="logs/SAC_fixedReward_Test4/SAC_None_f615c_00000_0_2022-07-22_14-58-20/checkpoint_000013/checkpoint-13"
+        #restore="logs/SAC_fixedReward_plus_largerNN_Test6/SAC_None_33231_00000_0_2022-07-22_20-15-00/checkpoint_000104/checkpoint-104"
         )
