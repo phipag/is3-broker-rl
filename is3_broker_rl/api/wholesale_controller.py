@@ -83,7 +83,7 @@ class WholesaleController:
             # TODO: Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
-            self._log.debug(f"Action: {action}")
+            #self._log.debug(f"Action: {action}")
             self.last_action = action
             # Transforms the action space from [-150:150] for the energy.
             # Transform the action space from [-1:1] to [0:100] for the price.
@@ -101,7 +101,7 @@ class WholesaleController:
                         sign = -1
                     action_scaled[i] = ((action[i] * 50) + 50) * sign
 
-            self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
+            #self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
 
             for act in action_scaled:
