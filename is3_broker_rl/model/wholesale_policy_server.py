@@ -431,8 +431,8 @@ def start_policy_server():
     # Size of the replay buffer. Note that if async_updates is set, then
     # each worker will have a replay buffer of this size.
     "replay_buffer_config": {
-        "type": "MultiAgentPrioritizedReplayBuffer",
-        "capacity": 50000,
+        "type": "MultiAgentReplayBuffer",
+        "capacity": 100000,
         "_enable_replay_buffer_api": True,
     },
     # Set this to True, if you want the contents of your buffer(s) to be
@@ -472,9 +472,9 @@ def start_policy_server():
 
     # === Optimization ===
     # Learning rate for the critic (Q-function) optimizer.
-    "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.90),
+    "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
     # Learning rate for the actor (policy) optimizer.
-    "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.90),
+    "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
     # Update the target network every `target_network_update_freq` steps.
     "target_network_update_freq": 1,
     # Update the target by \tau * policy + (1-\tau) * target_policy
@@ -535,9 +535,9 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_fRlargerNN_nore3_newconffromRewaNor_Test5",
+        name=f"{trainer_name}_fRlargerNN_nore3_newconffromRewaNor_Test6",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         fail_fast=True,
-        #restore="logs/DDPG_fRlargerNN_nore3_newconffromcar_Test2/DDPG_None_48e23_00000_0_2022-07-26_02-45-46/checkpoint_012500/checkpoint-12500"
+        #restore="is3_broker_rl/logs/TD3_fRlargerNN_nore3_newconffromRewaNor_Test6/TD3_None_32702_00000_0_2022-07-27_14-20-00/checkpoint_016500/checkpoint-16500"
         )
