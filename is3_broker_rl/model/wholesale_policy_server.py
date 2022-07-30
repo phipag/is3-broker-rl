@@ -535,7 +535,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_fRlargerNN_nore3_newconffromRewaNor_Test5",
+        name=f"{trainer_name}_simple1",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         fail_fast=True,
