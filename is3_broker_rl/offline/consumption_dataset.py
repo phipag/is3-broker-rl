@@ -290,6 +290,34 @@ def parse_balancing_transactions_df(broker_name: str) -> pd.DataFrame:
     return balancing_df[["balancing_costs"]]
 
 
+def get_tariff_publications(broker_name: str) -> pd.DataFrame:
+    raw_dfs = pd_glob_read_csv(
+        search_path=BASE_PATH,
+        glob="**/*tariff-publications.csv",
+        # This CSV file is invalid because of a comma instead of a semicolon for the timeslot column.
+        # Therefore, we parse it as a plain string per row and replace the comma by a semicolon using regex.
+        sep="?",
+    )
+    preprocessed_dfs: List[pd.DataFrame] = []
+    for invalid_df in raw_dfs:
+        game_id = invalid_df["game_id"].iloc[0]
+        invalid_df = invalid_df.drop(columns=["game_id"])
+        timeslot_tariff_id_regex = re.compile(rf"({game_id};\s\d+)(,)(\s\d+)")
+        tariff_pub_string = timeslot_tariff_id_regex.sub("\g<1>;\g<3>", invalid_df.to_string(index=False))  # noqa: W605
+        invalid_df = pd.read_csv(StringIO(tariff_pub_string), sep=";")
+        invalid_df["game_id"] = game_id
+        invalid_df.columns = [col.strip() for col in invalid_df.columns]
+        preprocessed_dfs.append(invalid_df)
+
+    pub_df = pd.concat(preprocessed_dfs, axis=0)
+    pub_df = pub_df[(pub_df["broker"].str.strip() == broker_name) & (pub_df["type"].str.strip() == "CONSUMPTION")]
+    pub_df = pub_df.set_index(["game_id", "timeslot"], drop=True)
+    pub_df = pub_df[~pub_df.index.duplicated()]
+    pub_df["tariff_publication"] = True
+
+    return pub_df["tariff_publication"].astype("bool")
+
+
 def main():
     start = time()
     with futures.ProcessPoolExecutor() as executor:
@@ -319,6 +347,8 @@ def main():
         + observation_df["wholesale_costs"]
         + observation_df["balancing_costs"]
     )
+    observation_df["tariff_publication"] = get_tariff_publications("TUC_TAC")
+    observation_df["tariff_publication"] = observation_df["tariff_publication"].fillna(False)
     print(f"Execution duration: {time() - start:2f}s")
     print(observation_df)
     observation_df.to_csv("/Users/phipag/Git/powertac/is3-broker-rl/data/tuc_tac_offline.csv")
