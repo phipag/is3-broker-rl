@@ -128,7 +128,7 @@ class WholesaleController:
             i=0
             
             shaped_return = abs( final_market_balance - sum_mWh) / -100
-            shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
+            shaped_return2 = abs( final_market_balance - abs(self.last_obs.p_customer_prosumption[0]/1000)) * -1
             
             final_reward = shaped_return2  #shaped_return#balancing_reward + wholesale_reward #+ tariff_reward
             self._log.info(f"Only shaped_reward2: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
@@ -200,14 +200,14 @@ class WholesaleController:
             os.makedirs(self._DATA_DIR, exist_ok=True)
             self.last_action_str = action
             observation = self.last_obs
-            df = pd.DataFrame(
-                {"episode_id": self._episode.episode_id, "observation": observation.json(), "action": action}, index=[0]
-            )
-            self._log.debug(df.iloc[0].to_json())
+            #df = pd.DataFrame(
+            #    {"episode_id": self._episode.episode_id, "observation": observation.json(), "action": action}, index=[0]
+            #)
+            #self._log.debug(df.iloc[0].to_json())
 
-            file = self._DATA_DIR / "wholesale_action.csv"
-            header = False if os.path.exists(file) else True
-            df.to_csv(file, mode="a", index=False, header=header)
+            #file = self._DATA_DIR / "wholesale_action.csv"
+            #header = False if os.path.exists(file) else True
+            #df.to_csv(file, mode="a", index=False, header=header)
         except Exception as e:
             self._log.debug(f"Persist action error {e}", exc_info=True)
 
