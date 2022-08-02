@@ -535,9 +535,9 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_simple1",
+        name=f"{trainer_name}_simple4",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
-        fail_fast=True,
-        #restore="is3_broker_rl/logs/TD3_fRlargerNN_nore3_newconffromRewaNor_Test6/TD3_None_32702_00000_0_2022-07-27_14-20-00/checkpoint_016500/checkpoint-16500"
+        max_failures = -1,
+        #restore="logs/TD3_simple1/TD3_None_81935_00000_0_2022-07-30_10-22-26/checkpoint_015500/checkpoint-15500"
         )

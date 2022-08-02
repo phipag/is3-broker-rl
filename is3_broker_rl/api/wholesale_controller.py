@@ -5,6 +5,7 @@ import pwd
 from cmath import e
 from pathlib import Path
 from posixpath import split
+import time
 from typing import Optional
 import math
 
@@ -46,6 +47,7 @@ class WholesaleController:
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
+        self.bootstrap_action()
 
     def _check_episode_started(self):
         if not self._episode:
@@ -128,10 +130,10 @@ class WholesaleController:
             i=0
             
             shaped_return = abs( final_market_balance - sum_mWh) / -100
-            shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
-            
+            shaped_return2 = abs( final_market_balance - abs(self.last_obs.p_customer_prosumption[0]/1000)) * -1
+            self._log.info(f"Only shaped_reward2: {shaped_return2}, {abs(self.last_obs.p_customer_prosumption[0]/1000)}")
             final_reward = shaped_return2  #shaped_return#balancing_reward + wholesale_reward #+ tariff_reward
-            self._log.info(f"Only shaped_reward2: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
+            self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
             #reward = reward + shaped_return
             self._log.info(f"Called log_returns with {final_reward}.")
             self._check_episode_started()
@@ -157,6 +159,7 @@ class WholesaleController:
         self.last_obs.market_position = self.string_to_list(request.market_position)
         obs = self._standardize_observation(self.last_obs)
         self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
+        self._episode = None
         # self.last_action_str = ""
         # self.last_obs = None
 
@@ -349,3 +352,74 @@ class WholesaleController:
                 return_list.append(float(value))
 
         return return_list
+
+
+    def bootstrap_action(self):
+        try:
+
+            episode_id = self._policy_client.start_episode(training_enabled=True)
+            self._episode = Episode(episode_id=episode_id)
+            os.makedirs(self._DATA_DIR, exist_ok=True)
+            file = self._DATA_DIR / "wholesale_reward_TD_3.csv"
+            
+            df = pd.read_csv(file)
+            self._log.info(f"{df.iloc[0]}")
+            
+            start = time.time()
+            for index, row in df.iterrows():
+                obs = json.loads(row["observation"])
+
+                obs = Observation(
+                    gameId=obs.get("gameId"),
+                    timeslot=obs.get("timeslot"),
+                    p_grid_imbalance=obs.get("p_grid_imbalance"),
+                    p_customer_prosumption=obs.get("p_customer_prosumption"),
+                    p_wholesale_price=obs.get("p_wholesale_price"),
+                    p_cloud_cover=obs.get("p_cloud_cover"),
+                    p_temperature=obs.get("p_temperature"),
+                    p_wind_speed=obs.get("p_wind_speed"),
+                    cleared_orders_price=obs.get("cleared_orders_price"),  # Inputs empty values. These will be filled later.
+                    cleared_orders_energy=obs.get("cleared_orders_energy"),  # Inputs empty values. These will be filled later.
+                    cleared_trade_price=obs.get("cleared_trade_price"), # Inputs empty values. These will be filled later.
+                    cleared_trade_energy=obs.get("cleared_trade_energy"),  # Inputs empty values. These will be filled later.
+                    customer_count=obs.get("customer_count"),
+                    total_prosumption=obs.get("total_prosumption"),
+                    hour_of_day=obs.get("hour_of_day"),
+                    day_of_week=obs.get("day_of_week"),
+                    market_position=obs.get("market_position"),
+                )
+                obs = self._standardize_observation(obs)
+                #self._log.info(f"Obs feature: {obs.to_feature_vector()}")
+                reward = row["reward"]
+                action_str = row["last_action"]
+               
+                
+                
+                action = self.string_to_list(action_str)
+                
+                #self._log.info(f"action: {action}")
+
+                self._policy_client.log_action(self._episode.episode_id, obs.to_feature_vector(), action)
+
+                    
+                self._policy_client.log_returns(self._episode.episode_id, reward)
+                
+            elapsed_time_fl = (time.time() - start)
+            self._log.info(f"Bootstrap finished. Time {elapsed_time_fl}")
+
+            self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
+            self._episode = None
+
+        except Exception as e:
+            self._log.debug(f"Bootstrap error {e}", exc_info=True)
+
+
+        #self._policy_client.end_episode(self._episode.episode_id,obs)
+        return
+
+
+
+    def log_action(self):
+        pass
+        
+
