@@ -135,12 +135,31 @@ def parse_broker_accounting_df(broker_name: str) -> pd.DataFrame:
     preprocessed_dfs: List[pd.DataFrame] = []
     for df in filtered_dfs:
         broker_column_index = find_broker_column_index_for_name(df, broker_name)
-        df = df[["game_id", "ts", f"cash.{broker_column_index}"]].rename(
-            columns={"ts": "timeslot", f"cash.{broker_column_index}": "cashPosition"}
+        df = df[
+            [
+                "game_id",
+                "ts",
+                f"cash.{broker_column_index}",
+                f"ctx-c.{broker_column_index}",
+                f"ctx-d.{broker_column_index}",
+                f"mtx-c.{broker_column_index}",
+                f"mtx-d.{broker_column_index}",
+            ]
+        ].rename(columns={"ts": "timeslot", f"cash.{broker_column_index}": "cashPosition"})
+        df["capacity_costs"] = df[f"ctx-c.{broker_column_index}"] + df[f"ctx-d.{broker_column_index}"]
+        df["wholesale_costs"] = df[f"mtx-c.{broker_column_index}"] + df[f"mtx-d.{broker_column_index}"]
+        df = df.drop(
+            columns=[
+                f"ctx-c.{broker_column_index}",
+                f"ctx-d.{broker_column_index}",
+                f"mtx-c.{broker_column_index}",
+                f"mtx-d.{broker_column_index}",
+            ]
         )
         preprocessed_dfs.append(df)
 
     broker_accounting_df = pd.concat(preprocessed_dfs, axis=0).set_index(["game_id", "timeslot"], drop=True)
+
     return broker_accounting_df
 
 
@@ -149,7 +168,7 @@ def parse_production_consumption_df(broker_name: str) -> pd.DataFrame:
         search_path=BASE_PATH,
         glob="**/*production-consumption-transactions.csv",
         sep=";",
-        predicate=lambda df: (df["ttx-type"] == "CONSUME") & (df["ttx-kwh"] < 0),
+        predicate=lambda df: (df["tariff-power-type"] == "CONSUMPTION"),
     )
     consumption_df = pd.concat(raw_dfs).set_index(["game_id", "timeslot"], drop=True)
     own_consumption_df = consumption_df[consumption_df["tariff-broker"] == broker_name].copy()
@@ -175,6 +194,8 @@ def parse_production_consumption_df(broker_name: str) -> pd.DataFrame:
     result_df.loc[market_average_mask, "marketPosition"] = MarketPosition.AVERAGE.value
     result_df["customerNetDemand"] = result_df["customerNetDemand"].fillna(0)
     result_df["marketPosition"] = result_df["marketPosition"].fillna(MarketPosition.NONE.value)
+    result_df["consumption_profit"] = own_consumption_df.groupby(["game_id", "timeslot"])["ttx-charge"].sum()
+    result_df["consumption_profit"] = result_df["consumption_profit"].fillna(0.0)
 
     return result_df
 
@@ -254,6 +275,49 @@ def parse_broker_market_prices_df(broker_name: str) -> pd.DataFrame:
     return broker_market_price_df
 
 
+def parse_balancing_transactions_df(broker_name: str) -> pd.DataFrame:
+    raw_dfs = pd_glob_read_csv(
+        search_path=BASE_PATH,
+        glob="**/*balancing-market-transactions.csv",
+        sep=";",
+        predicate=lambda df: df["broker-name"] == broker_name,
+    )
+    balancing_df = pd.concat(raw_dfs, axis=0)
+    balancing_df = balancing_df.set_index(["game_id", "timeslot"], drop=True).rename(
+        columns={"charge": "balancing_costs"}
+    )
+
+    return balancing_df[["balancing_costs"]]
+
+
+def get_tariff_publications(broker_name: str) -> pd.DataFrame:
+    raw_dfs = pd_glob_read_csv(
+        search_path=BASE_PATH,
+        glob="**/*tariff-publications.csv",
+        # This CSV file is invalid because of a comma instead of a semicolon for the timeslot column.
+        # Therefore, we parse it as a plain string per row and replace the comma by a semicolon using regex.
+        sep="?",
+    )
+    preprocessed_dfs: List[pd.DataFrame] = []
+    for invalid_df in raw_dfs:
+        game_id = invalid_df["game_id"].iloc[0]
+        invalid_df = invalid_df.drop(columns=["game_id"])
+        timeslot_tariff_id_regex = re.compile(rf"({game_id};\s\d+)(,)(\s\d+)")
+        tariff_pub_string = timeslot_tariff_id_regex.sub("\g<1>;\g<3>", invalid_df.to_string(index=False))  # noqa: W605
+        invalid_df = pd.read_csv(StringIO(tariff_pub_string), sep=";")
+        invalid_df["game_id"] = game_id
+        invalid_df.columns = [col.strip() for col in invalid_df.columns]
+        preprocessed_dfs.append(invalid_df)
+
+    pub_df = pd.concat(preprocessed_dfs, axis=0)
+    pub_df = pub_df[(pub_df["broker"].str.strip() == broker_name) & (pub_df["type"].str.strip() == "CONSUMPTION")]
+    pub_df = pub_df.set_index(["game_id", "timeslot"], drop=True)
+    pub_df = pub_df[~pub_df.index.duplicated()]
+    pub_df["tariff_publication"] = True
+
+    return pub_df["tariff_publication"].astype("bool")
+
+
 def main():
     start = time()
     with futures.ProcessPoolExecutor() as executor:
@@ -263,6 +327,7 @@ def main():
         production_consumption_df = executor.submit(parse_production_consumption_df, "TUC_TAC")
         market_price_df = executor.submit(parse_market_price_stats_df)
         broker_market_prices_df = executor.submit(parse_broker_market_prices_df, "TUC_TAC")
+        balancing_transactions_df = executor.submit(parse_balancing_transactions_df, "TUC_TAC")
 
     observation_df = reduce(
         lambda left_df, right_df: pd.merge(left_df, right_df, how="inner", left_index=True, right_index=True),
@@ -273,8 +338,17 @@ def main():
             production_consumption_df.result(),
             market_price_df.result(),
             broker_market_prices_df.result(),
+            balancing_transactions_df.result(),
         ],
     )
+    observation_df["reward"] = (
+        observation_df["consumption_profit"]
+        + observation_df["capacity_costs"]
+        + observation_df["wholesale_costs"]
+        + observation_df["balancing_costs"]
+    )
+    observation_df["tariff_publication"] = get_tariff_publications("TUC_TAC")
+    observation_df["tariff_publication"] = observation_df["tariff_publication"].fillna(False)
     print(f"Execution duration: {time() - start:2f}s")
     print(observation_df)
     observation_df.to_csv("/Users/phipag/Git/powertac/is3-broker-rl/data/tuc_tac_offline.csv")

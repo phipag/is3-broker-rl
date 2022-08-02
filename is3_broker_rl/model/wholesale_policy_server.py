@@ -521,7 +521,7 @@ def start_policy_server():
     DEFAULT_CONFIG["callbacks"] = WholesaleNormalizeRewardCallback
         
 
-
+    path_log = os.environ.get("DATA_DIR", "logs/")
 
     log = logging.getLogger(__name__)
     log.debug("Starting training loop ...")
