@@ -34,6 +34,7 @@ class Observation(BaseModel):
     cleared_trade_price: List[float] = []
     cleared_trade_energy: List[float] = []
     customer_count: int
+    customer_change: int
     total_prosumption: float
     market_position: List[float] = []
     hour_of_day: List[float] = []
@@ -55,6 +56,7 @@ class Observation(BaseModel):
                 #np.array(self.cleared_trade_price),#
                 #np.array(self.cleared_trade_energy),#
                 #np.array([self.customer_count]),#
+                np.array([self.customer_change]),
                 np.array([self.total_prosumption]),
                 np.array(self.market_position),
                 np.array(self.hour_of_day),
