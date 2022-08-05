@@ -42,12 +42,14 @@ class WholesaleController:
         setup_logging("is3_wholesale_rl.log")
         self._log = logging.getLogger(__name__)
         self.obs_dict = {}
+        self.cc_change = np.zeros((24))
+        self.cc_i = 0
         self._log.debug(f"Policy client actor using environment variables: {os.environ}")
         self._DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "data/"))
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
-        self.bootstrap_action()
+        #self.bootstrap_action("wholesale_reward.csv")
 
     def _check_episode_started(self):
         if not self._episode:
@@ -82,28 +84,61 @@ class WholesaleController:
             self.last_obs.total_prosumption = float(request.total_prosumption)
             self.last_obs.market_position = self.string_to_list(request.market_position)
 
-            # TODO: Preprocess obs:
+            # Set the change of customers over 24h
+            self._log.info(f"customer_count {request.customer_count}, {self.cc_change[self.cc_i]}")
+            self.last_obs.customer_change = request.customer_count - self.cc_change[self.cc_i]
+            #
+            self.cc_change[self.cc_i] = request.customer_count
+            self.cc_i += 1
+            # Loop back to one so it visits the right value after 24h.
+            if self.cc_i > 23:
+                self.cc_i = 0
+            # Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
             #self._log.debug(f"Action: {action}")
-            self.last_action = action
-            # Transforms the action space from [-150:150] for the energy.
+            # just to save the raw action for easier access later.
+            self.raw_action= ""
+            for act in action:
+                act1 = str(act)
+                self.raw_action = self.raw_action + ";" + act1
+            # Transforms the action space from [-50:50] for the energy.
             # Transform the action space from [-1:1] to [0:100] for the price.
             # The sign is applied.
             #  See powertac game specification.
+            #action_scaled = np.zeros((48))
+            #for i in range(48):
+            #    if i % 2 == 0:
+            #        action_scaled[i] = action[i] * 50
+            #        temp_action = action_scaled[i]
+            #    else:
+            #        if temp_action < 0:
+            #            sign = 1
+            #        else:
+            #            sign = -1
+            #        action_scaled[i] = ((action[i] * 50) + 50) * sign
             action_scaled = np.zeros((48))
+
             for i in range(48):
                 if i % 2 == 0:
-                    action_scaled[i] = action[i] * 50
+                    action_scaled[i] = self.last_obs.p_customer_prosumption[int(i/2)]/1000 * action[int(i/2)]
                     temp_action = action_scaled[i]
                 else:
                     if temp_action < 0:
                         sign = 1
                     else:
                         sign = -1
-                    action_scaled[i] = ((action[i] * 50) + 50) * sign
+                    price = self.last_obs.p_wholesale_price[int((i-1)/2)]
+                    # Just check if price is negative to help learning. 
+                    # TODO: Check later how often it actually is negative.
+                    if price < 0:
+                        sign = -1
+                        price = 1
+                    # Action ranges from -1 to 1.
+                    # Adding +1 results in a price distribution from 0% to 200%.
+                    action_scaled[i] = ((1+ action[int((i-1)/2)]) * price) * sign
 
-            #self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
+            self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
 
             for act in action_scaled:
@@ -157,6 +192,12 @@ class WholesaleController:
         self.last_obs.customer_count = request.customer_count
         self.last_obs.total_prosumption = float(request.total_prosumption)
         self.last_obs.market_position = self.string_to_list(request.market_position)
+        # Set the change of customers over 24h
+        self.last_obs.customer_change = self.cc_change[self.cc_i]
+        #
+        self.cc_change[self.cc_i] = request.customer_count
+        
+        
         obs = self._standardize_observation(self.last_obs)
         self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
         self._episode = None
@@ -186,11 +227,14 @@ class WholesaleController:
                 cleared_trade_price=[0] * 24,  # Inputs empty values. These will be filled later.
                 cleared_trade_energy=[0] * 24,  # Inputs empty values. These will be filled later.
                 customer_count=0,
+                customer_change=0,
                 total_prosumption=float(0),
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
                 market_position=[0] * 24,
             )
+
+            
 
             self.finished_observation = True
         except Exception as e:
@@ -232,6 +276,7 @@ class WholesaleController:
                 "observation": observation,
                 "last_action": action,
                 "sum_mWh": sum_mWh,
+                "raw_action": self.raw_action,
             },
             index=[0],
         )
@@ -331,6 +376,7 @@ class WholesaleController:
                 cleared_trade_energy=obs.cleared_trade_energy,
                 cleared_trade_price=obs.cleared_trade_price,
                 customer_count=obs.customer_count,
+                customer_change=obs.customer_change,
                 total_prosumption=obs.total_prosumption,
                 market_position=obs.market_position,
             )
@@ -354,20 +400,32 @@ class WholesaleController:
         return return_list
 
 
-    def bootstrap_action(self):
+    def bootstrap_action(self, reward_csv_name):
         try:
 
             episode_id = self._policy_client.start_episode(training_enabled=True)
             self._episode = Episode(episode_id=episode_id)
             os.makedirs(self._DATA_DIR, exist_ok=True)
-            file = self._DATA_DIR / "wholesale_reward_TD_3.csv"
+            file = self._DATA_DIR / reward_csv_name 
             
             df = pd.read_csv(file)
             self._log.info(f"{df.iloc[0]}")
-            
+            cc_i = 0
+            cc_change = np.zeros((24))
             start = time.time()
             for index, row in df.iterrows():
                 obs = json.loads(row["observation"])
+                if obs.get("customer_change") == None:
+                    self.last_obs = cc_change[cc_i]
+                    # 
+                    cc_change_value = cc_change[cc_i]
+                    cc_i += 1
+                    # Loop back to one so it visits the right value after 24h.
+                    if cc_i > 23:
+                        cc_i = 0
+
+                else:
+                    cc_change_value = obs.get("customer_change")
 
                 obs = Observation(
                     gameId=obs.get("gameId"),
@@ -383,6 +441,7 @@ class WholesaleController:
                     cleared_trade_price=obs.get("cleared_trade_price"), # Inputs empty values. These will be filled later.
                     cleared_trade_energy=obs.get("cleared_trade_energy"),  # Inputs empty values. These will be filled later.
                     customer_count=obs.get("customer_count"),
+                    customer_change=cc_change_value,
                     total_prosumption=obs.get("total_prosumption"),
                     hour_of_day=obs.get("hour_of_day"),
                     day_of_week=obs.get("day_of_week"),
@@ -392,11 +451,13 @@ class WholesaleController:
                 #self._log.info(f"Obs feature: {obs.to_feature_vector()}")
                 reward = row["reward"]
                 action_str = row["last_action"]
+                raw_action_str = row["raw_action"]
                
                 
                 
-                action = self.string_to_list(action_str)
+                action = self.string_to_list(raw_action_str)
                 
+
                 #self._log.info(f"action: {action}")
 
                 self._policy_client.log_action(self._episode.episode_id, obs.to_feature_vector(), action)
