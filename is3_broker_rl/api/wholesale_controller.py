@@ -497,9 +497,9 @@ class WholesaleController:
             i = 0
             variable = request.__dict__
             timeslot = variable.get("timeslot")
-            self._log.info(f"timeslot {timeslot}")
+            #self._log.info(f"timeslot {timeslot}")
             prosumption = list(variable.get("prosumption").values())[0]
-            self._log.info(f"Variable: {prosumption}")
+            #self._log.info(f"Variable: {prosumption}")
             groupName = variable["groupName"]
             if groupName > 0:
                 self.percentageSubs[groupName] = float(variable.get("percentageSubs"))
