@@ -37,6 +37,8 @@ class Observation(BaseModel):
     customer_change: int
     total_prosumption: float
     market_position: List[float] = []
+    percentageSubs: List[float] = []
+    prosumptionPerGroup: List[float] = []
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
 
@@ -59,6 +61,8 @@ class Observation(BaseModel):
                 np.array([self.customer_change]),
                 np.array([self.total_prosumption]),
                 np.array(self.market_position),
+                np.array(self.percentageSubs),
+                np.array(self.prosumptionPerGroup),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
             )
@@ -107,3 +111,11 @@ class GetActionRequest(BaseModel):
     customer_count: int
     total_prosumption: str
     market_position: str
+
+
+class ProsumptionRequest(BaseModel):
+    gameId: str
+    timeslot: int
+    groupName: int
+    prosumption: dict
+    percentageSubs: str

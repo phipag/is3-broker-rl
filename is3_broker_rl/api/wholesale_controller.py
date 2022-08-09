@@ -15,6 +15,7 @@ import pandas as pd
 from fastapi import HTTPException
 from ray import serve
 from ray.rllib.env import PolicyClient
+import requests
 from starlette.requests import Request
 
 from is3_broker_rl.api.fastapi_app import fastapi_app
@@ -25,6 +26,7 @@ from is3_broker_rl.api.wholesale_dto import (
     LogReturnsRequest,
     Observation,
     StartEpisodeRequest,
+    ProsumptionRequest
 )
 from is3_broker_rl.conf import setup_logging
 from is3_broker_rl.model.wholesale_policy_server import SERVER_ADDRESS, SERVER_BASE_PORT
@@ -44,6 +46,8 @@ class WholesaleController:
         self.obs_dict = {}
         self.cc_change = np.zeros((24))
         self.cc_i = 0
+        self.percentageSubs = np.zeros((20))
+        self.prosumptionPerGroup = np.zeros((20))
         self._log.debug(f"Policy client actor using environment variables: {os.environ}")
         self._DATA_DIR: Path = Path(os.environ.get("DATA_DIR", "data/"))
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
@@ -232,6 +236,8 @@ class WholesaleController:
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
                 market_position=[0] * 24,
+                percentageSubs=self.percentageSubs.tolist(),
+                prosumptionPerGroup=self.prosumptionPerGroup.tolist(),
             )
 
             
@@ -256,7 +262,7 @@ class WholesaleController:
             #header = False if os.path.exists(file) else True
             #df.to_csv(file, mode="a", index=False, header=header)
         except Exception as e:
-            self._log.debug(f"Persist action error {e}", exc_info=True)
+            self._log.error(f"Persist action error {e}", exc_info=True)
 
     def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, shaped_return: float, sum_mWh: float) -> None:
         self._check_episode_started()
@@ -379,12 +385,14 @@ class WholesaleController:
                 customer_change=obs.customer_change,
                 total_prosumption=obs.total_prosumption,
                 market_position=obs.market_position,
+                percentageSubs=obs.percentageSubs,
+                prosumptionPerGroup=obs.prosumptionPerGroup,
             )
             x = scaled_obs.total_prosumption
             
             self._log.debug(f"Scaled Obs: {scaled_obs}")
         except Exception as e:
-            self._log.debug(f"Scaling obs error {e}", exc_info=True)
+            self._log.error(f"Scaling obs error {e}", exc_info=True)
 
         return scaled_obs
 
@@ -443,6 +451,8 @@ class WholesaleController:
                     customer_count=obs.get("customer_count"),
                     customer_change=cc_change_value,
                     total_prosumption=obs.get("total_prosumption"),
+                    percentageSubs = obs.get("percentageSubs"),
+                    prosumptionPerGroup = obs.get("prosumptionPerGroup"),
                     hour_of_day=obs.get("hour_of_day"),
                     day_of_week=obs.get("day_of_week"),
                     market_position=obs.get("market_position"),
@@ -472,15 +482,46 @@ class WholesaleController:
             self._episode = None
 
         except Exception as e:
-            self._log.debug(f"Bootstrap error {e}", exc_info=True)
+            self._log.error(f"Bootstrap error {e}", exc_info=True)
 
 
         #self._policy_client.end_episode(self._episode.episode_id,obs)
         return
 
 
+    @fastapi_app.post("/history")
+    def log_customer_history(self, request: ProsumptionRequest) -> None:
+        try:
+            
+            #prosumption = request.prosumption
+            i = 0
+            variable = request.__dict__
+            timeslot = variable.get("timeslot")
+            self._log.info(f"timeslot {timeslot}")
+            prosumption = list(variable.get("prosumption").values())[0]
+            self._log.info(f"Variable: {prosumption}")
+            groupName = variable["groupName"]
+            if groupName > 0:
+                self.percentageSubs[groupName] = float(variable.get("percentageSubs"))
+                self.prosumptionPerGroup[groupName] = variable.get("prosumption").get(str(timeslot-1))
+                if i>18:
+                    i=0
+                    #self.last_obs.percentageSubs = self.percentageSubs
+                    #self.last_obs.prosumption = self.prosumption
 
-    def log_action(self):
-        pass
+                i+=1
+
+
+
+                
+ 
+
+        except Exception as e:
+            self._log.error(f"prosumption_history error {e}", exc_info=True)
+
+
+
+
+    
         
 

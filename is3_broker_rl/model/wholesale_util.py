@@ -39,6 +39,10 @@ class Env_config:
         h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 24))  # market_position = 0
         h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 20))  # percentageSubs
+        h_bounds.append(np.array([np.inf] * 20))
+        l_bounds.append(np.array([-np.inf] * 20))  # ProsumptionPerGroup
+        h_bounds.append(np.array([np.inf] * 20))
         l_bounds.append(np.array([-np.inf] * 24))  # hour of the start with dummy.
         h_bounds.append(np.array([np.inf] * 24))
         l_bounds.append(np.array([-np.inf] * 7))  # day of the start with dummy
