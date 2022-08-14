@@ -67,6 +67,30 @@ class Observation(BaseModel):
                 np.array(self.day_of_week),
             )
         )
+    # For prediciton only:
+    def to_prediction_vector(self):
+        return np.concatenate(
+            (
+                np.array(self.p_grid_imbalance),
+                np.array(self.p_customer_prosumption),
+                np.array(self.p_wholesale_price),
+                np.array(self.p_cloud_cover),
+                np.array(self.p_temperature),
+                np.array(self.p_wind_speed),
+                np.array(self.cleared_orders_price),
+                np.array(self.cleared_orders_energy),
+                np.array(self.cleared_trade_price),
+                np.array(self.cleared_trade_energy),
+                np.array([self.customer_count]),
+                np.array([self.customer_change]),
+                np.array([self.total_prosumption]),
+                np.array(self.market_position),
+                np.array(self.percentageSubs),
+                np.array(self.prosumptionPerGroup),
+                np.array(self.hour_of_day),
+                np.array(self.day_of_week),
+            )
+        )
 
 
 class Episode(BaseModel):

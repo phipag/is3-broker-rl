@@ -472,16 +472,16 @@ def start_policy_server():
 
     # === Optimization ===
     # Learning rate for the critic (Q-function) optimizer.
-    "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
+    "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
     # Learning rate for the actor (policy) optimizer.
-    "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
+    "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
     # Update the target network every `target_network_update_freq` steps.
     "target_network_update_freq": 1,
     # Update the target by \tau * policy + (1-\tau) * target_policy
     "tau": 0.002,
     # If True, use huber loss instead of squared loss for critic network
     # Conventionally, no need to clip gradients if using a huber loss
-    "use_huber": False,
+    "use_huber": True,
     # Threshold of a huber loss
     "huber_threshold": 1.0,
     # Weights for L2 regularization
@@ -535,9 +535,9 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_simple_newaction_3",
+        name=f"{trainer_name}_trial4",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         max_failures = -1,
-        #restore="logs/TD3_simple1/TD3_None_81935_00000_0_2022-07-30_10-22-26/checkpoint_015500/checkpoint-15500"
+        #restore="logs/TD3_simple_newaction_3/TD3_None_fca89_00000_0_2022-08-14_15-42-50/checkpoint_005000/checkpoint-5000"
         )
