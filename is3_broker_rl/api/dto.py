@@ -31,7 +31,6 @@ class Observation(BaseModel):
     timeslot: int
     gridImbalance: float
     ownImbalanceKwh: float
-    customerCount: int
     customerNetDemand: float
     marketPosition: MarketPosition
     wholesalePrice: float
@@ -51,7 +50,6 @@ class Observation(BaseModel):
             self.cashPosition,
             self.consumptionShare,
             self.productionShare,
-            self.customerCount,
             self.marketPosition.value,
         ]
 
@@ -66,7 +64,6 @@ class Observation(BaseModel):
             "cashPosition": self.cashPosition,
             "consumptionShare": self.consumptionShare,
             "productionShare": self.productionShare,
-            "customerCount": self.customerCount,
             "marketPosition": self.marketPosition.value,
         }
 

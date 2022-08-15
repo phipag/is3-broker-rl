@@ -43,7 +43,6 @@ dqn_config = with_common_config(
                     np.finfo(np.float32).min,  # cashPosition
                     0,  # consumptionShare
                     0,  # productionShare
-                    0,  # customerCount
                     0,  # marketPosition
                 ]
             ),
@@ -62,7 +61,6 @@ dqn_config = with_common_config(
                     np.finfo(np.float32).max,  # cashPosition
                     1,  # consumptionShare
                     1,  # productionShare
-                    1e6,  # customerCount
                     4,  # marketPosition
                 ]
             ),
@@ -96,8 +94,8 @@ dqn_config = with_common_config(
         # DQN
         "replay_buffer_config": {
             "type": "MultiAgentPrioritizedReplayBuffer",
-            # Wait at least one episode before starting learning.
-            "learning_starts": 12,
+            # Wait 500 steps before starting learning
+            "learning_starts": 500,
         },
         "store_buffer_in_checkpoints": True,
         # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
