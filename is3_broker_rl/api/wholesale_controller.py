@@ -114,14 +114,14 @@ class WholesaleController:
             if self.cc_i >= 23:
                 self.cc_i = 0
             # Preprocess obs:
-            pred = self.predict_sum_mWh_diff(self.last_obs)
-            pred_list = []
-            for x in pred:
+            #pred = self.predict_sum_mWh_diff(self.last_obs)
+            #pred_list = []
+            #for x in pred:
                 #self._log.info(f"pred x {x}")
-                pred_list.append(float(x))
-            self._log.info(f"pred {pred_list}")
+                #pred_list.append(float(x))
+            #self._log.info(f"pred {pred_list}")
             #self._log.info(f"obs before {self.last_obs}")
-            self.last_obs.p_customer_prosumption = pred_list
+            #self.last_obs.p_customer_prosumption = pred_list
             #self._log.info(f"obs after {self.last_obs}")
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
@@ -222,7 +222,7 @@ class WholesaleController:
             final_reward = shaped_return
             self._log.info(f"Called log_returns with {final_reward}.")
             self._check_episode_started()
-            self.train_sum_mWh_diff(self.last_obs, sum_mWh)
+            #self.train_sum_mWh_diff(self.last_obs, sum_mWh)
             self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, final_market_balance, sum_mWh)#, final_market_balance)
             self._policy_client.log_returns(self._episode.episode_id, final_reward)
         except Exception as e:
