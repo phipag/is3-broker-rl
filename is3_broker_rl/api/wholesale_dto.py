@@ -39,8 +39,10 @@ class Observation(BaseModel):
     market_position: List[float] = []
     percentageSubs: List[float] = []
     prosumptionPerGroup: List[float] = []
+    needed_mWh: List[float] = []
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
+    
 
     # remember to change the observation space ;)
 
@@ -63,6 +65,7 @@ class Observation(BaseModel):
                 np.array(self.market_position),
                 np.array(self.percentageSubs),
                 np.array(self.prosumptionPerGroup),
+                np.array(self.needed_mWh),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
             )
@@ -87,6 +90,7 @@ class Observation(BaseModel):
                 np.array(self.market_position),
                 np.array(self.percentageSubs),
                 np.array(self.prosumptionPerGroup),
+                #np.array(self.needed_mWh),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
             )
@@ -112,6 +116,7 @@ class EndEpisodeRequest(BaseModel):
     customer_count: int
     total_prosumption: str
     market_position: str
+    needed_mWh: str
 
 
 class LogReturnsRequest(BaseModel):
@@ -135,6 +140,7 @@ class GetActionRequest(BaseModel):
     customer_count: int
     total_prosumption: str
     market_position: str
+    needed_mWh: str
 
 
 class ProsumptionRequest(BaseModel):

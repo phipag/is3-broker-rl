@@ -53,11 +53,14 @@ class WholesaleController:
         self.obs_dict = {}
         self.cc_change = np.zeros((24))
         self.temp_obs = []
+
         # Also loads the model if false
         self.save_model = False
-        self.load_bootstrap_dataset("wholesale_reward_fortrial4.csv")
+        self.load_bootstrap_dataset("wholesale_reward_16_08.csv")
         self.cc_i = 0
         self.last_pred = []
+        self.hist_sum_mWh = np.zeros((48))
+        self.time_i = 0
         self.percentageSubs = np.zeros((20))
         self.prosumptionPerGroup = np.zeros((20))
         self._log.debug(f"Policy client actor using environment variables: {os.environ}")
@@ -65,7 +68,7 @@ class WholesaleController:
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
-        #self.bootstrap_action("wholesale_reward_fortrial4.csv")
+        #self.bootstrap_action("wholesale_reward.csv")
 
     def _check_episode_started(self):
         if not self._episode:
@@ -99,15 +102,16 @@ class WholesaleController:
             self.last_obs.customer_count = request.customer_count
             self.last_obs.total_prosumption = float(request.total_prosumption)
             self.last_obs.market_position = self.string_to_list(request.market_position)
+            self.last_obs.needed_mWh = self.string_to_list(request.needed_mWh)
 
             # Set the change of customers over 24h
             
             self.last_obs.customer_change = request.customer_count - self.cc_change[self.cc_i]
-            self._log.info(f"customer_count {request.customer_count}, {self.cc_change[self.cc_i]}")
+            #self._log.info(f"customer_count {request.customer_count}, {self.cc_change[self.cc_i]}")
             self.cc_change[self.cc_i] = request.customer_count
             self.cc_i += 1
             # Loop back to one so it visits the right value after 24h.
-            if self.cc_i > 23:
+            if self.cc_i >= 23:
                 self.cc_i = 0
             # Preprocess obs:
             pred = self.predict_sum_mWh_diff(self.last_obs)
@@ -115,7 +119,7 @@ class WholesaleController:
             for x in pred:
                 #self._log.info(f"pred x {x}")
                 pred_list.append(float(x))
-            #self._log.info(f"pred {pred_list}")
+            self._log.info(f"pred {pred_list}")
             #self._log.info(f"obs before {self.last_obs}")
             self.last_obs.p_customer_prosumption = pred_list
             #self._log.info(f"obs after {self.last_obs}")
@@ -147,14 +151,22 @@ class WholesaleController:
             for i in range(48):
                 if i % 2 == 0:
                     # Take the difference between the predicted prosumption and the last market position.
-                    if i ==46:
+                    if i ==46: # For the first bid there is no last market position.
                         market_position = 0
                     else:
+                        
+                        # market position of the timeslot before our bidding.
                         market_position  = self.last_obs.market_position[int((i/2))+1]
-
-                    action_scaled[i] = (self.last_obs.p_customer_prosumption[int(i/2)]/1000  - market_position) * action[int(i/2)]
-                    temp_action = action_scaled[i]
+                    # Abs here because the action should decide whether to buy or sell.
+                    
+                    action_scaled[i] = abs(self.last_obs.needed_mWh[int(i/2)]  - market_position) * action[int(i/2)]
+                    
+                    if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
+                        temp_action = action_scaled[i] * -1
+                    else:
+                        temp_action = action_scaled[i]
                 else:
+                    # Reverse the sign of the action. Else we gift energy to the market or get no trades.
                     if temp_action < 0:
                         sign = 1
                     else:
@@ -163,7 +175,7 @@ class WholesaleController:
                     # Just check if price is negative to help learning. 
                     # TODO: Check later how often it actually is negative.
                     if price < 0:
-                        sign = -1
+                        #sign = -1
                         price = 1
                     # Action ranges from -1 to 1.
                     # Adding +1 results in a price distribution from 0% to 200%.
@@ -195,17 +207,23 @@ class WholesaleController:
             sum_mWh = request.sum_mWh
             final_market_balance = request.final_market_balance
             i=0
-            
+            # Save last 48 hours of prosumption for the prediction. 
+            # Needs to be 48h to give 24h of data for the prediction of t24.
+            self.hist_sum_mWh[self.time_i] = sum_mWh
+            self.time_i += 1
+            if self.time_i >= 47:
+                self.time_i = 0
+
             shaped_return = abs( final_market_balance - sum_mWh) / -100
-            shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
+            #shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
             
-            final_reward = balancing_reward + wholesale_reward #+ tariff_reward
-            self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
-            #reward = reward + shaped_return
+            #final_reward = balancing_reward + wholesale_reward #+ tariff_reward
+            #self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
+            final_reward = shaped_return
             self._log.info(f"Called log_returns with {final_reward}.")
             self._check_episode_started()
             self.train_sum_mWh_diff(self.last_obs, sum_mWh)
-            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, shaped_return, sum_mWh)
+            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, final_market_balance, sum_mWh)#, final_market_balance)
             self._policy_client.log_returns(self._episode.episode_id, final_reward)
         except Exception as e:
             self._log.error(f"Log reward error: {e}", exc_info=True)
@@ -213,28 +231,40 @@ class WholesaleController:
 
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
-        self._log.debug(f"Called end_episode with {request}.")
-        self._check_episode_started()
-        self.finished_observation = False
+        try:
+            self._log.debug(f"Called end_episode with {request}.")
+            self._check_episode_started()
+            self.finished_observation = False
 
-        self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
-        self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
-        self.last_obs.cleared_trade_price = self.string_to_list(request.cleared_trade_price)
-        self.last_obs.cleared_trade_energy = self.string_to_list(request.cleared_trade_energy)
-        self.last_obs.customer_count = request.customer_count
-        self.last_obs.total_prosumption = float(request.total_prosumption)
-        self.last_obs.market_position = self.string_to_list(request.market_position)
-        # Set the change of customers over 24h
-        self.last_obs.customer_change = self.cc_change[self.cc_i]
-        #
-        self.cc_change[self.cc_i] = request.customer_count
-        
-        
-        obs = self._standardize_observation(self.last_obs)
-        self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
-        self._episode = None
-        # self.last_action_str = ""
-        # self.last_obs = None
+            self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
+            self.last_obs.cleared_orders_energy = self.string_to_list(request.cleared_orders_energy)
+            self.last_obs.cleared_trade_price = self.string_to_list(request.cleared_trade_price)
+            self.last_obs.cleared_trade_energy = self.string_to_list(request.cleared_trade_energy)
+            self.last_obs.customer_count = request.customer_count
+            self.last_obs.total_prosumption = float(request.total_prosumption)
+            self.last_obs.market_position = self.string_to_list(request.market_position)
+            self.last_obs.needed_mWh = self.string_to_list(request.needed_mWh)
+            # Set the change of customers over 24h
+            self.last_obs.customer_change = self.cc_change[self.cc_i]
+            #
+            self.cc_change[self.cc_i] = request.customer_count
+            
+            
+            obs = self._standardize_observation(self.last_obs)
+            self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
+            self._episode = None
+            # self.last_action_str = ""
+            # self.last_obs = None
+            # TODO: save online prediction model:
+            #if self.last_obs.timeslot % 500 == 0:
+            #    os.makedirs(self._DATA_DIR, exist_ok=True)
+            #    for diff_i in range(24):
+            #        pkl_filename = self._DATA_DIR / f"prediction_{diff_i}.pkl"
+            #        with open(pkl_filename, "wb") as file:
+            #            pickle.dump(self.rf[diff_i], file)
+
+        except Exception as e:
+            self._log.error(f"Observation building error: {e}", exc_info=True)
 
     @fastapi_app.post("/build_observation")
     def build_observation(self, request: Request) -> None:
@@ -261,12 +291,14 @@ class WholesaleController:
                 customer_count=0,
                 customer_change=0,
                 total_prosumption=float(0),
+                needed_mWh=[0] * 24,
                 hour_of_day=obs[144:168].tolist(),
                 day_of_week=obs[168:175].tolist(),
                 market_position=[0] * 24,
                 percentageSubs=self.percentageSubs.tolist(),
                 prosumptionPerGroup=self.prosumptionPerGroup.tolist(),
             )
+            #self.last_obs.p_customer_prosumption = self.last_obs.p_customer_prosumption /1000
 
             
 
@@ -292,7 +324,8 @@ class WholesaleController:
         except Exception as e:
             self._log.error(f"Persist action error {e}", exc_info=True)
 
-    def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, shaped_return: float, sum_mWh: float) -> None:
+    def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, 
+                        shaped_return: float, sum_mWh: float):#, final_market_balance: float) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         observation = self.last_obs.json()
@@ -311,6 +344,8 @@ class WholesaleController:
                 "last_action": action,
                 "sum_mWh": sum_mWh,
                 "raw_action": self.raw_action,
+                #"final_market_balance": final_market_balance,
+
             },
             index=[0],
         )
@@ -415,6 +450,7 @@ class WholesaleController:
                 market_position=obs.market_position,
                 percentageSubs=obs.percentageSubs,
                 prosumptionPerGroup=obs.prosumptionPerGroup,
+                needed_mWh=obs.needed_mWh,
             )
             x = scaled_obs.total_prosumption
             
@@ -436,6 +472,9 @@ class WholesaleController:
         return return_list
 
 
+    # This function reads old logs and uses off-policy
+    # learning to train the model and fill the replay buffer.
+    # Can be turned on and off.
     def bootstrap_action(self, reward_csv_name):
         try:
 
@@ -449,6 +488,8 @@ class WholesaleController:
             cc_i = 0
             cc_change = np.zeros((24))
             start = time.time()
+            hist_sum_mWh = np.zeros((48))
+            bootstrap_i = 0
             for index, row in df.iterrows():
                 obs = json.loads(row["observation"])
                 if obs.get("customer_change") == None:
@@ -485,10 +526,27 @@ class WholesaleController:
                     hour_of_day=obs.get("hour_of_day"),
                     day_of_week=obs.get("day_of_week"),
                     market_position=obs.get("market_position"),
+                    needed_mWh=obs.get("needed_mWh"),
                 )
                 temp_prosumption = obs.p_customer_prosumption
+                hist_sum_mWh[bootstrap_i] = row["sum_mWh"]
                 for i in range(len(temp_prosumption)):
-                    temp_prosumption[i] = self.rf[i].predict(obs.to_prediction_vector().reshape(1, -1))# + sum
+
+                    predict_vector = obs.to_prediction_vector()
+
+                    # Find the correct value for the historic prosumption.
+
+                    time_i = bootstrap_i - 24 - i
+                    # Loop back to one so it visits the right value.
+                    if time_i < 0:
+                        time_i = 48 + time_i
+                    temp_value = hist_sum_mWh[time_i]
+                    predict_vector2 = np.append(predict_vector,temp_value)
+                    temp_prosumption[i] = self.rf[i].predict(predict_vector2.reshape(1, -1))# + sum
+                
+                bootstrap_i +=1
+                if bootstrap_i > 47:
+                    bootstrap_i = 0
                 obs.p_customer_prosumption = temp_prosumption
                 obs = self._standardize_observation(obs)
                 #self._log.info(f"Obs feature: {obs.to_feature_vector()}")
@@ -535,7 +593,7 @@ class WholesaleController:
             prosumption = list(variable.get("prosumption").values())[0]
             #self._log.info(f"Variable: {prosumption}")
             groupName = variable["groupName"]
-            if groupName > 0:
+            if groupName >= 0:
                 self.percentageSubs[groupName] = float(variable.get("percentageSubs"))
                 self.prosumptionPerGroup[groupName] = variable.get("prosumption").get(str(timeslot-1))
                 if i>18:
@@ -561,11 +619,21 @@ class WholesaleController:
         #This adds online learning to the LSTM model.
         
         try:
-            input = obs.to_prediction_vector()
+            input_vector = obs.to_prediction_vector()
             #self._log.info(f"Input: {input}")
             pred = []
             for diff_i in range(0,24):
-                pred.append(self.rf[diff_i].predict(input.reshape(1, -1)))
+                # Find the correct value for the historic prosumption.
+
+                time_i = self.time_i - 24 - diff_i -1
+                # Loop back to one so it visits the right value.
+                if time_i < 0:
+                    time_i = 48 + time_i
+                hist_sum_mWh = self.hist_sum_mWh[time_i]
+                #self._log.info(input_vector)
+                input_vector2 = np.append(input_vector,hist_sum_mWh)
+                #self._log.info(input_vector2)
+                pred.append(self.rf[diff_i].predict(input_vector2.reshape(1, -1)))
             self.last_pred = pred
             return pred
         except Exception as e:
@@ -591,15 +659,40 @@ class WholesaleController:
                 # Only train the model if the obs is available.
                 for diff_i in range(0,len(self.temp_obs)):
                     input_train = self.temp_obs[diff_i]
+                    
+                    # Find the correct value for the historic prosumption.
+
+                    time_i = self.time_i - 24 - diff_i -1
+                    # Loop back to one so it visits the right value.
+                    if time_i < 0:
+                        time_i = 48 + time_i
+                    hist_sum_mWh = self.hist_sum_mWh[time_i]
+                    input_train2 = np.append(input_train,hist_sum_mWh)
+                    #self._log.info(input_train2)
                     #self._log.info(f"input_train {input_train}")
                     #self._log.info(f"input_train {type(input_train)}")
                     #self._log.info(f"y_true {y_true[diff_i]}")
                     
-                    self.rf[diff_i].fit(input_train.reshape(1, -1), y_true[diff_i].reshape(-1, 1), sample_weight=[100])
+                    self.rf[diff_i].fit(input_train2.reshape(1, -1), y_true[diff_i].reshape(-1, 1), sample_weight=[10])
 
 
                 mae = np.abs(np.array(self.last_pred) - np.array(y_true).reshape(-1, 1))
                 self._log.info(f"Pred error: {mae}")
+                os.makedirs(self._DATA_DIR, exist_ok=True)
+                
+                df = pd.DataFrame(
+                    {
+                        "timeslot": self.last_obs.timeslot,
+                        "prediciton": self.last_pred[diff_i],
+                        "true_value": y_true[diff_i],
+                    },
+                    index=[0],
+                )
+
+                file = self._DATA_DIR / "wholesale_prediction.csv"
+                header = False if os.path.exists(file) else True
+                df.to_csv(file, mode="a", index=False, header=header)
+
             
             
         except Exception as e:
@@ -659,11 +752,19 @@ class WholesaleController:
             self.rf = []
             for diff_i in tqdm(range(0,24)):
                 #temp_merge_df["sum_diff"] = temp_merge_df[f"p_customer_prosumption_{diff_i}"]/1000 - temp_merge_df["sum_mWh"]
-                temp_merge_df["sum_diff"] = temp_merge_df["sum_mWh"]/1000
+                temp_merge_df["sum_diff"] = temp_merge_df["sum_mWh"]
+                
+                test = temp_merge_df["sum_mWh"].shift(-24 - diff_i -1)
+                temp_merge_df["last_sum"] = test
+                temp_merge_df.fillna(0, inplace=True)
+                
+                
+
                 X = temp_merge_df[temp_merge_df.columns.difference(["gameId", "timeslot", "sum_diff", "sum_mWh"])]
+                
                 #y = df["sum_mWh"]
-                y = temp_merge_df["sum_diff"]
-                self.rf.append(RandomForestRegressor(warm_start=True, n_estimators=30, max_features="sqrt", n_jobs=-1))
+                y = temp_merge_df["sum_diff"].shift(diff_i+1).fillna(0)
+                self.rf.append(RandomForestRegressor(warm_start=True, n_estimators=20, max_features="sqrt", n_jobs=-1))
                 self.rf[diff_i].fit(X, y)
                 # Save the model.
                 pkl_filename = self._DATA_DIR / f"prediction_{diff_i}.pkl"
