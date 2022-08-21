@@ -146,3 +146,8 @@ cython_debug/
 # Log and data contents
 logs/*
 data/*
+
+# Other brokers
+ex_broker_spot19/
+ex_broker_vv/
+ex_broker_TUCTAC/

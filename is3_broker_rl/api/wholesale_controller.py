@@ -56,7 +56,7 @@ class WholesaleController:
 
         # Also loads the model if false
         self.save_model = False
-        self.load_bootstrap_dataset("wholesale_reward_16_08.csv")
+        #self.load_bootstrap_dataset("wholesale_reward_16_08.csv")
         self.cc_i = 0
         self.last_pred = []
         self.hist_sum_mWh = np.zeros((48))
