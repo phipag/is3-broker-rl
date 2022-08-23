@@ -3,7 +3,7 @@ import os
 from ray.rllib.agents import with_common_config
 from ray.tune import tune
 
-from is3_broker_rl.model.normalize_reward_callback import NormalizeRewardCallback
+from is3_broker_rl.model.normalize_reward_callback import ConsumptionNormalizeRewardCallback
 
 N_WORKERS = 0
 
@@ -13,7 +13,7 @@ cartpole_config = with_common_config(
         # Normalize the observations
         "observation_filter": "MeanStdFilter",
         # Normalize the rewards
-        "callbacks": NormalizeRewardCallback,
+        "callbacks": ConsumptionNormalizeRewardCallback,
         # Use n worker processes to listen on different ports.
         "num_workers": N_WORKERS,
         # Disable off-policy-evaluation, since the rollouts are coming from online clients.
@@ -32,13 +32,13 @@ cartpole_config = with_common_config(
             "type": "EpsilonGreedy",
             "initial_epsilon": 1.0,
             "final_epsilon": 0.02,
-            "epsilon_timesteps": 2000,
+            "epsilon_timesteps": 1500,
         },
         # DQN
         "replay_buffer_config": {
             "type": "MultiAgentPrioritizedReplayBuffer",
-            # Wait at least one episode before starting learning.
-            "learning_starts": 12
+            # Wait 500 steps before starting learning
+            "learning_starts": 500,
         },
         "store_buffer_in_checkpoints": True,
         # The Java broker uses an episode length of 168 and gets a new action every 14 timeslots.
