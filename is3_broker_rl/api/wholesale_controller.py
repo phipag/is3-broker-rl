@@ -159,10 +159,11 @@ class WholesaleController:
                         market_position  = self.last_obs.market_position[int((i/2))+1]
                     # Abs here because the action should decide whether to buy or sell.
                     
-                    action_scaled[i] = abs(self.last_obs.needed_mWh[int(i/2)]  - market_position) * action[int(i/2)]
+                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]  - market_position)) * action[int(i)]
                     
                     if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
                         temp_action = action_scaled[i] * -1
+                        action_scaled[i] = action_scaled[i] * -1
                     else:
                         temp_action = action_scaled[i]
                 else:
@@ -177,9 +178,10 @@ class WholesaleController:
                     if price < 0:
                         #sign = -1
                         price = 1
+                        self._log.info(f"Price is negative")
                     # Action ranges from -1 to 1.
                     # Adding +1 results in a price distribution from 0% to 200%.
-                    action_scaled[i] = ((1+ action[int((i-1)/2)]) * price) * sign
+                    action_scaled[i] = ((1+ action[i]) * price) * sign
 
             self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
@@ -298,7 +300,12 @@ class WholesaleController:
                 percentageSubs=self.percentageSubs.tolist(),
                 prosumptionPerGroup=self.prosumptionPerGroup.tolist(),
             )
-            #self.last_obs.p_customer_prosumption = self.last_obs.p_customer_prosumption /1000
+            # Converting from kWh to mWh.
+            value_list = []
+            for value in self.last_obs.p_customer_prosumption:
+                value_list.append(value / 1000)
+            self.last_obs.p_customer_prosumption = value_list
+            
 
             
 
