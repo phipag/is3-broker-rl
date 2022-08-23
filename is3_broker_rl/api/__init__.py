@@ -1,3 +1,3 @@
-from is3_broker_rl.api.dto import Action, Observation, Reward
+from is3_broker_rl.api.dto import TariffRateAction, Observation, Reward
 
-__all__ = ["Reward", "Action", "Observation"]
+__all__ = ["Reward", "TariffRateAction", "Observation"]
