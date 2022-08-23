@@ -2,17 +2,22 @@
 This file contains the Data Transfer Objects (DTOs) used for API communication with the Java broker.
 """
 import enum
-from typing import List, Optional, Union, Dict
+from typing import Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
 
-class Action(enum.IntEnum):
+class TariffRateAction(enum.IntEnum):
     NEW_ITERATION = 4
     LEADER = 3
     AVERAGE = 2
     TRAILER = 1
     NO_OP = 0
+
+
+class Action(BaseModel):
+    tariff_rate_action: TariffRateAction
+    ppf_action: float
 
 
 class ActionResponse(BaseModel):

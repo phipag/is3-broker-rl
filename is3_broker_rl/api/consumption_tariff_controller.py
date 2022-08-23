@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import dotenv
 import pandas as pd
@@ -20,6 +20,7 @@ from is3_broker_rl.api.dto import (
     Observation,
     Reward,
     StartEpisodeRequest,
+    TariffRateAction,
 )
 from is3_broker_rl.api.fastapi_app import fastapi_app
 from is3_broker_rl.conf import setup_logging
@@ -57,7 +58,7 @@ class ConsumptionTariffController:
         assert isinstance(self._episode, Episode)  # Make mypy happy
         os.makedirs(self._DATA_DIR, exist_ok=True)
 
-        df = pd.DataFrame({"episode_id": self._episode.episode_id, **observation.dict(), "action": action}, index=[0])
+        df = pd.DataFrame({"episode_id": self._episode.episode_id, **observation.dict(), **action.dict()}, index=[0])
         self._log.debug(df.iloc[0].to_json())
 
         file = self._DATA_DIR / "consumption_action.csv"
@@ -77,7 +78,7 @@ class ConsumptionTariffController:
                 "reward": reward,
                 **reward_info.dict(),
                 **observation.dict(),
-                "last_action": last_action,
+                **last_action.dict(),
             },
             index=[0],
         )
@@ -86,6 +87,15 @@ class ConsumptionTariffController:
         file = self._DATA_DIR / "consumption_reward.csv"
         header = False if os.path.exists(file) else True
         df.to_csv(file, mode="a", index=False, header=header)
+
+    def _get_tariff_rate_ppf_tuple(self, action_id: int) -> Tuple[TariffRateAction, int]:
+        """
+        Translates the returned action_id which is a number between 0 and 5 * 14 to a unique tariff rate and ppf action
+        tuple.
+        :param action_id: Action id returned by the RL algorithm
+        :return: Action tuple where first entry is the tariff rate action and the second entry the ppf action
+        """
+        return TariffRateAction(action_id % 5), action_id % 14
 
     @fastapi_app.post("/start-episode", response_model=Episode)
     def start_episode(self, request: StartEpisodeRequest) -> Episode:
@@ -103,8 +113,11 @@ class ConsumptionTariffController:
         assert isinstance(self._episode, Episode)  # Make mypy happy
 
         action_id = self._policy_client.get_action(self._episode.episode_id, request.observation.to_feature_vector())
-        action = Action(action_id)
-        self._log.info(f"Algorithm predicted action={action}. Persisting to .csv file ...")
+        tariff_rate_action, ppf_action = self._get_tariff_rate_ppf_tuple(action_id)
+        action = Action(tariff_rate_action=tariff_rate_action, ppf_action=ppf_action)
+        self._log.info(
+            f"Algorithm predicted action_id={action_id} which is action={action}. Persisting to .csv file ..."
+        )
         self._persist_action(request.observation, action)
 
         return ActionResponse(action=action)

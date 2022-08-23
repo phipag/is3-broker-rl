@@ -4,15 +4,30 @@ Content-Type: application/json
 {
   "episode_id": "{{episode_id}}",
   "reward": 2.0,
+  "last_action": {
+    "tariff_rate_action": 2,
+    "ppf_action": 7.0
+  },
   "observation": {
     "timeslot": 360,
     "gameId": "PowerTAC GameId",
     "gridImbalance": 123.0,
-    "ownBalancingCosts": 112.2,
-    "customerCount": 123,
+    "ownImbalanceKwh": 123.0,
+    "consumptionShare": 0.4,
+    "productionShare": 0.4,
     "customerNetDemand": 113.4,
     "wholesalePrice": 0.51,
+    "ownWholesalePrice": 0.3,
+    "cashPosition": 1200.41,
     "marketPosition": 0
+  },
+  "reward_info": {
+    "consumption_profit": 1000,
+    "action_penalty": -100,
+    "consumption_fees": 0,
+    "balancing_costs": -136,
+    "capacity_costs": 0,
+    "wholesale_costs": 560
   }
 }
 
