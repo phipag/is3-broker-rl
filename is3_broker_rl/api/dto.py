@@ -17,7 +17,7 @@ class TariffRateAction(enum.IntEnum):
 
 class Action(BaseModel):
     tariff_rate_action: TariffRateAction
-    ppf_action: float
+    ppf_action: int
 
 
 class ActionResponse(BaseModel):

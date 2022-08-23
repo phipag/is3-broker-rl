@@ -78,7 +78,8 @@ class ConsumptionTariffController:
                 "reward": reward,
                 **reward_info.dict(),
                 **observation.dict(),
-                **last_action.dict(),
+                "last_tariff_rate_action": last_action.tariff_rate_action if last_action is not None else None,
+                "last_ppf_action": last_action.ppf_action if last_action is not None else None,
             },
             index=[0],
         )
