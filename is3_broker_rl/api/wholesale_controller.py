@@ -53,6 +53,7 @@ class WholesaleController:
         self.obs_dict = {}
         self.cc_change = np.zeros((24))
         self.temp_obs = []
+        self.temp_final_market_balance = []
 
         # Also loads the model if false
         self.save_model = False
@@ -161,11 +162,11 @@ class WholesaleController:
                     
                     action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]  - market_position)) * action[int(i)]
                     
-                    if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
-                        temp_action = action_scaled[i] * -1
-                        action_scaled[i] = action_scaled[i] * -1
-                    else:
-                        temp_action = action_scaled[i]
+                    #if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
+                    #    temp_action = action_scaled[i] * -1
+                    #    action_scaled[i] = action_scaled[i] * -1
+                    #else:
+                    temp_action = action_scaled[i]
                 else:
                     # Reverse the sign of the action. Else we gift energy to the market or get no trades.
                     if temp_action < 0:
@@ -215,17 +216,31 @@ class WholesaleController:
             self.time_i += 1
             if self.time_i >= 47:
                 self.time_i = 0
+            
+            self.temp_final_market_balance.append(final_market_balance)
+            # only start getting rewards after 2 rewards are in the list.
+            if len(self.temp_final_market_balance) >1:
+                reward_market_balance = self.temp_final_market_balance.pop(0)
 
-            shaped_return = abs( final_market_balance - sum_mWh) / -100
+            
+
+                shaped_return = abs( reward_market_balance - sum_mWh) / -100
             #shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
             
             #final_reward = balancing_reward + wholesale_reward #+ tariff_reward
             #self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
-            final_reward = shaped_return
-            self._log.info(f"Called log_returns with {final_reward}.")
+                final_reward = shaped_return
+            
+                self._log.info(f"Called log_returns with {final_reward}.")
+            
+            else:
+                shaped_return = 0
+                final_reward = 0
+                reward_market_balance = 0
+
             self._check_episode_started()
             #self.train_sum_mWh_diff(self.last_obs, sum_mWh)
-            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, final_market_balance, sum_mWh)#, final_market_balance)
+            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, reward_market_balance, sum_mWh)#, final_market_balance)
             self._policy_client.log_returns(self._episode.episode_id, final_reward)
         except Exception as e:
             self._log.error(f"Log reward error: {e}", exc_info=True)
