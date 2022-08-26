@@ -38,8 +38,8 @@ def start_policy_server():
     env_config = Env_config()
     observation_space, action_space = env_config.get_gym_spaces()
     
-    trainer_name = "TD3"
-    enable_RE3_exploration = False
+    trainer_name = "SAC"
+    enable_RE3_exploration = True
 
 
     if trainer_name == "PPO":
@@ -148,8 +148,8 @@ def start_policy_server():
             "target_network_update_freq": 1,
             # === Optimization ===
             "optimization": {
-                "actor_learning_rate": 3e-5,
-                "critic_learning_rate": 3e-4,
+                "actor_learning_rate": 3e-6,
+                "critic_learning_rate": 3e-5,
                 "entropy_learning_rate": 3e-5,
             },
             "input_evaluation": [],
@@ -199,6 +199,25 @@ def start_policy_server():
             "target_entropy" :"auto",
             
         }
+        DEFAULT_CONFIG = with_common_config(config)
+        if enable_RE3_exploration == True:
+            config["callbacks"] = MultiCallbacks(
+            [
+                partial(
+                    RE3UpdateCallbacks,
+                    embeds_dim=128,
+                    beta_schedule="linear_decay",
+                    k_nn=50,
+                )
+                
+            ]
+            )
+            config["exploration_config"] = {
+                "type": "RE3",
+                "sub_exploration": {
+                    "type": "StochasticSampling",
+                },
+            }
 
     
     # See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
@@ -272,25 +291,7 @@ def start_policy_server():
         "compress_observations": True,
     }
     """
-    #DEFAULT_CONFIG = with_common_config(config)
-    #if enable_RE3_exploration == True:
-    #    config["callbacks"] = MultiCallbacks(
-    #    [
-    #        config["callbacks"],
-    #        partial(
-    #            RE3UpdateCallbacks,
-    #            embeds_dim=128,
-    #            beta_schedule="linear_decay",
-    #            k_nn=50,
-    #        )
-    #    ]
-    #    )
-    #    config["exploration_config"] = {
-    #        "type": "RE3",
-    #        "sub_exploration": {
-    #            "type": "StochasticSampling",
-    #        },
-    #    }
+    
 #
         
         #DEFAULT_CONFIG["callbacks"] = 
@@ -530,7 +531,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_trial5_withoutPingPong",
+        name=f"{trainer_name}_trial5_woPP_simpleRew1",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         max_failures = -1,

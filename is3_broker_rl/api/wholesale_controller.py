@@ -69,7 +69,7 @@ class WholesaleController:
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
-        #self.bootstrap_action("wholesale_reward.csv")
+        self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
 
     def _check_episode_started(self):
         if not self._episode:
@@ -552,28 +552,28 @@ class WholesaleController:
                 )
                 temp_prosumption = obs.p_customer_prosumption
                 hist_sum_mWh[bootstrap_i] = row["sum_mWh"]
-                for i in range(len(temp_prosumption)):
-
-                    predict_vector = obs.to_prediction_vector()
-
-                    # Find the correct value for the historic prosumption.
-
-                    time_i = bootstrap_i - 24 - i
-                    # Loop back to one so it visits the right value.
-                    if time_i < 0:
-                        time_i = 48 + time_i
-                    temp_value = hist_sum_mWh[time_i]
-                    predict_vector2 = np.append(predict_vector,temp_value)
-                    temp_prosumption[i] = self.rf[i].predict(predict_vector2.reshape(1, -1))# + sum
+                #for i in range(len(temp_prosumption)):
+#
+                #    predict_vector = obs.to_prediction_vector()
+#
+                #    # Find the correct value for the historic prosumption.
+#
+                #    time_i = bootstrap_i - 24 - i
+                #    # Loop back to one so it visits the right value.
+                #    if time_i < 0:
+                #        time_i = 48 + time_i
+                #    temp_value = hist_sum_mWh[time_i]
+                #    predict_vector2 = np.append(predict_vector,temp_value)
+                #    temp_prosumption[i] = self.rf[i].predict(predict_vector2.reshape(1, -1))# + sum
                 
-                bootstrap_i +=1
-                if bootstrap_i > 47:
-                    bootstrap_i = 0
-                obs.p_customer_prosumption = temp_prosumption
+                #bootstrap_i +=1
+                #if bootstrap_i > 47:
+                #    bootstrap_i = 0
+                #obs.p_customer_prosumption = temp_prosumption
                 obs = self._standardize_observation(obs)
                 #self._log.info(f"Obs feature: {obs.to_feature_vector()}")
-                #reward = row["reward"]
-                reward = row["wholesale_reward"] + row["balancing_reward"]
+                reward = row["reward"]
+                #reward = row["wholesale_reward"] + row["balancing_reward"]
                 action_str = row["last_action"]
                 raw_action_str = row["raw_action"]
                
