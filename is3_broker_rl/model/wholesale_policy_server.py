@@ -531,7 +531,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_trial5_woPP_simpleRew1",
+        name=f"{trainer_name}_trial5_woPP_simpleRew2",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         max_failures = -1,

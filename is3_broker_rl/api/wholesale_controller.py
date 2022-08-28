@@ -69,7 +69,7 @@ class WholesaleController:
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
-        self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
+        #self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
 
     def _check_episode_started(self):
         if not self._episode:
@@ -218,13 +218,14 @@ class WholesaleController:
                 self.time_i = 0
             
             self.temp_final_market_balance.append(final_market_balance)
+
             # only start getting rewards after 2 rewards are in the list.
             if len(self.temp_final_market_balance) >1:
                 reward_market_balance = self.temp_final_market_balance.pop(0)
 
             
 
-                shaped_return = abs( reward_market_balance - sum_mWh) / -100
+                shaped_return = abs( final_market_balance - self.last_obs.needed_mWh[0]) / -100
             #shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
             
             #final_reward = balancing_reward + wholesale_reward #+ tariff_reward
@@ -512,6 +513,7 @@ class WholesaleController:
             start = time.time()
             hist_sum_mWh = np.zeros((48))
             bootstrap_i = 0
+            temp_final_market_balance = []
             for index, row in df.iterrows():
                 obs = json.loads(row["observation"])
                 if obs.get("customer_change") == None:
@@ -565,14 +567,27 @@ class WholesaleController:
                 #    temp_value = hist_sum_mWh[time_i]
                 #    predict_vector2 = np.append(predict_vector,temp_value)
                 #    temp_prosumption[i] = self.rf[i].predict(predict_vector2.reshape(1, -1))# + sum
+                temp_final_market_balance.append(obs.needed_mWh[0])
+
+                # only start getting rewards after 2 rewards are in the list.
+                if len(temp_final_market_balance) >1:
+                    reward_market_balance = temp_final_market_balance.pop(0)
+
                 
+
+                    shaped_return = abs( row["shaped_return"] - obs.needed_mWh[0]) / -100
+                
+
+                    reward = shaped_return
+                else:
+                    reward = 0
                 #bootstrap_i +=1
                 #if bootstrap_i > 47:
                 #    bootstrap_i = 0
                 #obs.p_customer_prosumption = temp_prosumption
                 obs = self._standardize_observation(obs)
                 #self._log.info(f"Obs feature: {obs.to_feature_vector()}")
-                reward = row["reward"]
+                #reward = row["reward"]
                 #reward = row["wholesale_reward"] + row["balancing_reward"]
                 action_str = row["last_action"]
                 raw_action_str = row["raw_action"]
