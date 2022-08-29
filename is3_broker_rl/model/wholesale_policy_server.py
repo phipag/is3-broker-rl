@@ -13,11 +13,40 @@ from ray.tune import tune
 from is3_broker_rl.model.normalize_reward_callback import WholesaleNormalizeRewardCallback
 from ray.rllib.agents.callbacks import MultiCallbacks
 from is3_broker_rl.model.wholesale_util import Env_config
+from ray.rllib.agents.callbacks import DefaultCallbacks
+from ray.rllib.env import BaseEnv
+from ray.rllib.evaluation import Episode, RolloutWorker
+from ray.rllib.policy import Policy
+from ray.rllib.policy.sample_batch import SampleBatch
+
+from typing import Dict, Tuple
+import argparse
 
 SERVER_ADDRESS = "localhost"
 SERVER_BASE_PORT = 9920
 N_WORKERS = 0
 
+class MyCallbacks(DefaultCallbacks):
+    def on_postprocess_trajectory(
+        self,
+        *,
+        worker: RolloutWorker,
+        episode: Episode,
+        agent_id: str,
+        policy_id: str,
+        policies: Dict[str, Policy],
+        postprocessed_batch: SampleBatch,
+        original_batches: Dict[str, Tuple[Policy, SampleBatch]],
+        **kwargs
+    ):
+        try:
+            print("here1")
+            print("postprocessed {} steps".format(postprocessed_batch["rewards"]))
+            #o_b = original_batches[original_batches.keys()]["rewards"]
+            #print(f"Original batch: {o_b}")
+        except Exception as e:
+            self._log.error(f"Get Action error: {e}", exc_info=True)
+        
 
 def _input(ioctx):
     # We are remote worker or we are local worker with num_workers=0:
@@ -120,7 +149,7 @@ def start_policy_server():
             # do in the top-level `model` dict.
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
-            "n_step": 25,
+            "n_step": 24,
             # Number of env steps to optimize for before returning.
             "timesteps_per_iteration": 1,
             # The intensity with which to update the model (vs collecting samples from
@@ -181,7 +210,7 @@ def start_policy_server():
                 "type": "MultiAgentReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 1000,
+                "learning_starts": 1,
                 "storage_unit": "timesteps",
             
             
@@ -201,18 +230,19 @@ def start_policy_server():
         }
         DEFAULT_CONFIG = with_common_config(config)
         if enable_RE3_exploration == True:
-            config["callbacks"] = MultiCallbacks(
+            DEFAULT_CONFIG["callbacks"] = MultiCallbacks(
             [
                 partial(
                     RE3UpdateCallbacks,
                     embeds_dim=128,
                     beta_schedule="linear_decay",
                     k_nn=50,
-                )
+                ),
+                MyCallbacks
                 
             ]
             )
-            config["exploration_config"] = {
+            DEFAULT_CONFIG["exploration_config"] = {
                 "type": "RE3",
                 "sub_exploration": {
                     "type": "StochasticSampling",
@@ -531,7 +561,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_trial5_woPP_simpleRew2",
+        name=f"{trainer_name}_test_new_action_episodes1",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         max_failures = -1,

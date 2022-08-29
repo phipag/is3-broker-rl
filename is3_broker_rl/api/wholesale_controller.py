@@ -64,12 +64,13 @@ class WholesaleController:
         self.time_i = 0
         self.percentageSubs = np.zeros((20))
         self.prosumptionPerGroup = np.zeros((20))
+        self.saved_action = np.zeros((24*24*2))
         self._log.debug(f"Policy client actor using environment variables: {os.environ}")
         
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
-        #self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
+        self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
 
     def _check_episode_started(self):
         if not self._episode:
@@ -132,6 +133,7 @@ class WholesaleController:
             for act in action:
                 act1 = str(act)
                 self.raw_action = self.raw_action + ";" + act1
+                #self.saved_action.append(act1)
             # Transforms the action space from [-50:50] for the energy.
             # Transform the action space from [-1:1] to [0:100] for the price.
             # The sign is applied.
@@ -160,7 +162,7 @@ class WholesaleController:
                         market_position  = self.last_obs.market_position[int((i/2))+1]
                     # Abs here because the action should decide whether to buy or sell.
                     
-                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]  - market_position)) * action[int(i)]
+                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]*  - market_position)) * action[int(i)]
                     
                     #if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
                     #    temp_action = action_scaled[i] * -1
