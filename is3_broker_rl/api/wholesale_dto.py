@@ -50,14 +50,14 @@ class Observation(BaseModel):
                 np.array(self.p_grid_imbalance),
                 np.array(self.p_customer_prosumption),
                 np.array(self.p_wholesale_price),
-                #np.array(self.p_cloud_cover),#
-                #np.array(self.p_temperature),#
-                #np.array(self.p_wind_speed),#
-                #np.array(self.cleared_orders_price),#
-                #np.array(self.cleared_orders_energy),#
-                #np.array(self.cleared_trade_price),#
-                #np.array(self.cleared_trade_energy),#
-                #np.array([self.customer_count]),#
+                # np.array(self.p_cloud_cover),#
+                # np.array(self.p_temperature),#
+                # np.array(self.p_wind_speed),#
+                # np.array(self.cleared_orders_price),#
+                # np.array(self.cleared_orders_energy),#
+                # np.array(self.cleared_trade_price),#
+                # np.array(self.cleared_trade_energy),#
+                # np.array([self.customer_count]),#
                 np.array([self.customer_change]),
                 np.array([self.total_prosumption]),
                 np.array(self.market_position),

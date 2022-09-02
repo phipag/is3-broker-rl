@@ -1,18 +1,21 @@
 # `InputReader` generator (returns None if no input reader is needed on
 # the respective worker).
-from functools import partial
-from gc import callbacks
 import logging
 import os
+from functools import partial
+from gc import callbacks
+
 import ray
 import tensorflow as tf
-from tensorflow.nn import leaky_relu
-from ray.rllib.agents.callbacks import RE3UpdateCallbacks
+from ray.rllib.agents.callbacks import MultiCallbacks, RE3UpdateCallbacks
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.env import PolicyServerInput
 from ray.tune import tune
-from is3_broker_rl.model.normalize_reward_callback import WholesaleNormalizeRewardCallback
-from ray.rllib.agents.callbacks import MultiCallbacks
+from tensorflow.nn import leaky_relu
+
+from is3_broker_rl.model.normalize_reward_callback import (
+    WholesaleNormalizeRewardCallback,
+)
 from is3_broker_rl.model.wholesale_util import Env_config
 
 SERVER_ADDRESS = "localhost"
@@ -35,15 +38,14 @@ def _input(ioctx):
 
 
 def start_policy_server():
-    
+
     env_config = Env_config()
     observation_space, action_space = env_config.get_gym_spaces()
 
     trainer_name = "TD3"
     enable_RE3_exploration = False
 
-
-    #if trainer_name == "DQN":
+    # if trainer_name == "DQN":
     #    config = {
     #        "env": None,
     #        "observation_space": observation_space,
@@ -61,7 +63,7 @@ def start_policy_server():
     #        # Set to INFO so we'll see the server's actual address:port.
     #        "log_level": "DEBUG",
     #    }
-#
+    #
     #    # For DQN
     #    config.update(
     #        {
@@ -74,7 +76,7 @@ def start_policy_server():
     #        "fcnet_hiddens": [64],
     #        "fcnet_activation": "linear",
     #    }
-#
+    #
     #    log = logging.getLogger(__name__)
     #    log.debug("Starting training loop ...")
     #    tune.run(
@@ -86,7 +88,7 @@ def start_policy_server():
     #        log_to_file=True,
     #        name="wholesale_DQN_Test",
     #    )
-    #elif trainer_name == "PPO":
+    # elif trainer_name == "PPO":
     #    config = {
     #        "env": None,
     #        # gridImbalance, ownImbalance, customerNetDemand, customerCount, marketPosition
@@ -108,7 +110,7 @@ def start_policy_server():
     #        "timesteps_per_iteration": 512,
     #        "observation_filter": "MeanStdFilter",
     #    }
-#
+    #
     #    config.update(
     #        {
     #            "lr_schedule": None,
@@ -127,13 +129,13 @@ def start_policy_server():
     #            "kl_target": 0.01,
     #        }
     #    )
-#
+    #
     #    config["model"] = {
     #        "fcnet_hiddens": [64],
     #        "fcnet_activation": "linear",
     #    }
-#
-    #elif trainer_name == "SAC":
+    #
+    # elif trainer_name == "SAC":
     #    config = {
     #        # gridImbalance, ownImbalance, customerNetDemand, customerCount, marketPosition
     #        "env": None,
@@ -183,7 +185,7 @@ def start_policy_server():
     #        "training_intensity": 100,
     #        # Update the replay buffer with this many samples at once. Note that this
     #        # setting applies per-worker if num_workers > 1.
-    #        
+    #
     #        "rollout_fragment_length": 8,
     #        # Size of a batched sampled from replay buffer for training.
     #        "train_batch_size": 8,
@@ -226,8 +228,8 @@ def start_policy_server():
     #            # How many steps of the model to sample before learning starts.
     #            "learning_starts": 1,
     #            "storage_unit": "timesteps",
-    #        
-    #        
+    #
+    #
     #            # If True prioritized replay buffer will be used.
     #            #"prioritized_replay": True,
     #            "prioritized_replay_alpha": 0.5,
@@ -242,11 +244,11 @@ def start_policy_server():
     #        "target_entropy" :"auto"
     #        #"callbacks" : MultiCallbacks([RE3Callbacks(), WholesaleNormalizeRewardCallback()]),
     #    }
-#
+    #
     #
     ## See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
     #
-    #config = with_common_config(config)
+    # config = with_common_config(config)
     """
     config= {
         "num_gpus": 1
@@ -348,178 +350,173 @@ def start_policy_server():
          #config["callbacks"] = WholesaleNormalizeRewardCallback
     """
 
-    DEFAULT_CONFIG = with_common_config({
-    # === Twin Delayed DDPG (TD3) and Soft Actor-Critic (SAC) tricks ===
-    # TD3: https://spinningup.openai.com/en/latest/algorithms/td3.html
-    # In addition to settings below, you can use "exploration_noise_type" and
-    # "exploration_gauss_act_noise" to get IID Gaussian exploration noise
-    # instead of OU exploration noise.
-    # twin Q-net
-    "framework": "tf2",
-    "twin_q": True,
-    "env": None,
-        "observation_space": observation_space,
-        "action_space": action_space,
-        "input": _input,
-    # delayed policy update
-    "policy_delay": 1,
-    # target policy smoothing
-    # (this also replaces OU exploration noise with IID Gaussian exploration
-    # noise, for now)
-    "smooth_target_policy": False,
-    # gaussian stddev of target action noise for smoothing
-    "target_noise": 0.2,
-    # target noise limit (bound)
-    "target_noise_clip": 0.5,
-
-    # === Evaluation ===
-    # Evaluate with epsilon=0 every `evaluation_interval` training iterations.
-    # The evaluation stats will be reported under the "evaluation" metric key.
-    # Note that evaluation is currently not parallelized, and that for Ape-X
-    # metrics are already only reported for the lowest epsilon workers.
-    "evaluation_interval": None,
-    # Number of episodes to run per evaluation period.
-    "evaluation_duration": 10,
-
-    # === Model ===
-    # Apply a state preprocessor with spec given by the "model" config option
-    # (like other RL algorithms). This is mostly useful if you have a weird
-    # observation shape, like an image. Disabled by default.
-    #"use_state_preprocessor": "MeanStdFilter",
-    # Postprocess the policy network model output with these hidden layers. If
-    # use_state_preprocessor is False, then these will be the *only* hidden
-    # layers in the network.
-    "actor_hiddens": [400, 300, 200],
-    # Hidden layers activation of the postprocessing stage of the policy
-    # network
-    "actor_hidden_activation": "relu",
-    # Postprocess the critic network model output with these hidden layers;
-    # again, if use_state_preprocessor is True, then the state will be
-    # preprocessed by the model specified with the "model" config option first.
-    "critic_hiddens": [400, 300, 200],
-    # Hidden layers activation of the postprocessing state of the critic.
-    "critic_hidden_activation": "relu",
-    # N-step Q learning
-    "n_step": 24,
-
-    # === Exploration ===
-    "exploration_config": {
-        # DDPG uses OrnsteinUhlenbeck (stateful) noise to be added to NN-output
-        # actions (after a possible pure random phase of n timesteps).
-        "type": "OrnsteinUhlenbeckNoise",
-        # For how many timesteps should we return completely random actions,
-        # before we start adding (scaled) noise?
-        "random_timesteps": 1500,
-        # The OU-base scaling factor to always apply to action-added noise.
-        "ou_base_scale": 0.1,
-        # The OU theta param.
-        "ou_theta": 0.15,
-        # The OU sigma param.
-        "ou_sigma": 0.2,
-        # The initial noise scaling factor.
-        "initial_scale": 0.1,
-        # The final noise scaling factor.
-        "final_scale": 0.0002,
-        # Timesteps over which to anneal scale (from initial to final values).
-        "scale_timesteps": 10000,
-    },
-    # Number of env steps to optimize for before returning
-    "timesteps_per_iteration": 1,
-    # Extra configuration that disables exploration.
-    "input_evaluation": [],
-    # === Replay buffer ===
-    # Size of the replay buffer. Note that if async_updates is set, then
-    # each worker will have a replay buffer of this size.
-    "replay_buffer_config": {
-        "type": "MultiAgentReplayBuffer",
-        "capacity": 100000,
-        "_enable_replay_buffer_api": True,
-    },
-    # Set this to True, if you want the contents of your buffer(s) to be
-    # stored in any saved checkpoints as well.
-    # Warnings will be created if:
-    # - This is True AND restoring from a checkpoint that contains no buffer
-    #   data.
-    # - This is False AND restoring from a checkpoint that does contain
-    #   buffer data.
-    "store_buffer_in_checkpoints": True,
-    # If True prioritized replay buffer will be used.
-    "prioritized_replay": True,
-    # Alpha parameter for prioritized replay buffer.
-    "prioritized_replay_alpha": 0.6,
-    # Beta parameter for sampling from prioritized replay buffer.
-    "prioritized_replay_beta": 0.4,
-    # Epsilon to add to the TD errors when updating priorities.
-    "prioritized_replay_eps": 1e-6,
-    # Whether to LZ4 compress observations
-    "compress_observations": True,
-    
-    # The intensity with which to update the model (vs collecting samples from
-    # the env). If None, uses the "natural" value of:
-    # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
-    # `num_envs_per_worker`).
-    # If provided, will make sure that the ratio between ts inserted into and
-    # sampled from the buffer matches the given value.
-    # Example:
-    #   training_intensity=1000.0
-    #   train_batch_size=250 rollout_fragment_length=1
-    #   num_workers=1 (or 0) num_envs_per_worker=1
-    #   -> natural value = 250 / 1 = 250.0
-    #   -> will make sure that replay+train op will be executed 4x as
-    #      often as rollout+insert op (4 * 250 = 1000).
-    # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
-    "training_intensity": None,
-
-    # === Optimization ===
-    # Learning rate for the critic (Q-function) optimizer.
-    "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
-    # Learning rate for the actor (policy) optimizer.
-    "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
-    # Update the target network every `target_network_update_freq` steps.
-    "target_network_update_freq": 1,
-    # Update the target by \tau * policy + (1-\tau) * target_policy
-    "tau": 0.002,
-    # If True, use huber loss instead of squared loss for critic network
-    # Conventionally, no need to clip gradients if using a huber loss
-    "use_huber": False,
-    # Threshold of a huber loss
-    "huber_threshold": 1.0,
-    # Weights for L2 regularization
-    "l2_reg": 1e-6,
-    # If not None, clip gradients during optimization at this value
-    "grad_clip": None,
-    # How many steps of the model to sample before learning starts.
-    "learning_starts": 1500,
-    # Update the replay buffer with this many samples at once. Note that this
-    # setting applies per-worker if num_workers > 1.
-    "rollout_fragment_length": 1,
-    # Size of a batched sampled from replay buffer for training. Note that
-    # if async_updates is set, then each worker returns gradients for a
-    # batch of this size.
-    "train_batch_size": 8,
-    "smooth_target_policy": True,
-    # === Parallelism ===
-    # Number of workers for collecting samples with. This only makes sense
-    # to increase if your environment is particularly slow to sample, or if
-    # you're using the Async or Ape-X optimizers.
-    "num_workers": 0,
-    # Whether to compute priorities on workers.
-    "worker_side_prioritization": False,
-    # Prevent reporting frequency from going lower than this time span.
-    "min_time_s_per_reporting": 1,
-    # Experimental flag.
-    # If True, the execution plan API will not be used. Instead,
-    # a Trainer's `training_iteration` method will be called as-is each
-    # training iteration.
-    "_disable_execution_plan_api": False,
-    "train_batch_size": 4,
-    
-    #"num_gpus": 1,
-    #"fake_gpus": True,
-    #"simple_optimizer":True,
-})
+    DEFAULT_CONFIG = with_common_config(
+        {
+            # === Twin Delayed DDPG (TD3) and Soft Actor-Critic (SAC) tricks ===
+            # TD3: https://spinningup.openai.com/en/latest/algorithms/td3.html
+            # In addition to settings below, you can use "exploration_noise_type" and
+            # "exploration_gauss_act_noise" to get IID Gaussian exploration noise
+            # instead of OU exploration noise.
+            # twin Q-net
+            "framework": "tf2",
+            "twin_q": True,
+            "env": None,
+            "observation_space": observation_space,
+            "action_space": action_space,
+            "input": _input,
+            # delayed policy update
+            "policy_delay": 1,
+            # target policy smoothing
+            # (this also replaces OU exploration noise with IID Gaussian exploration
+            # noise, for now)
+            "smooth_target_policy": False,
+            # gaussian stddev of target action noise for smoothing
+            "target_noise": 0.2,
+            # target noise limit (bound)
+            "target_noise_clip": 0.5,
+            # === Evaluation ===
+            # Evaluate with epsilon=0 every `evaluation_interval` training iterations.
+            # The evaluation stats will be reported under the "evaluation" metric key.
+            # Note that evaluation is currently not parallelized, and that for Ape-X
+            # metrics are already only reported for the lowest epsilon workers.
+            "evaluation_interval": None,
+            # Number of episodes to run per evaluation period.
+            "evaluation_duration": 10,
+            # === Model ===
+            # Apply a state preprocessor with spec given by the "model" config option
+            # (like other RL algorithms). This is mostly useful if you have a weird
+            # observation shape, like an image. Disabled by default.
+            # "use_state_preprocessor": "MeanStdFilter",
+            # Postprocess the policy network model output with these hidden layers. If
+            # use_state_preprocessor is False, then these will be the *only* hidden
+            # layers in the network.
+            "actor_hiddens": [400, 300, 200],
+            # Hidden layers activation of the postprocessing stage of the policy
+            # network
+            "actor_hidden_activation": "relu",
+            # Postprocess the critic network model output with these hidden layers;
+            # again, if use_state_preprocessor is True, then the state will be
+            # preprocessed by the model specified with the "model" config option first.
+            "critic_hiddens": [400, 300, 200],
+            # Hidden layers activation of the postprocessing state of the critic.
+            "critic_hidden_activation": "relu",
+            # N-step Q learning
+            "n_step": 24,
+            # === Exploration ===
+            "exploration_config": {
+                # DDPG uses OrnsteinUhlenbeck (stateful) noise to be added to NN-output
+                # actions (after a possible pure random phase of n timesteps).
+                "type": "OrnsteinUhlenbeckNoise",
+                # For how many timesteps should we return completely random actions,
+                # before we start adding (scaled) noise?
+                "random_timesteps": 1500,
+                # The OU-base scaling factor to always apply to action-added noise.
+                "ou_base_scale": 0.1,
+                # The OU theta param.
+                "ou_theta": 0.15,
+                # The OU sigma param.
+                "ou_sigma": 0.2,
+                # The initial noise scaling factor.
+                "initial_scale": 0.1,
+                # The final noise scaling factor.
+                "final_scale": 0.0002,
+                # Timesteps over which to anneal scale (from initial to final values).
+                "scale_timesteps": 10000,
+            },
+            # Number of env steps to optimize for before returning
+            "timesteps_per_iteration": 1,
+            # Extra configuration that disables exploration.
+            "input_evaluation": [],
+            # === Replay buffer ===
+            # Size of the replay buffer. Note that if async_updates is set, then
+            # each worker will have a replay buffer of this size.
+            "replay_buffer_config": {
+                "type": "MultiAgentReplayBuffer",
+                "capacity": 100000,
+                "_enable_replay_buffer_api": True,
+            },
+            # Set this to True, if you want the contents of your buffer(s) to be
+            # stored in any saved checkpoints as well.
+            # Warnings will be created if:
+            # - This is True AND restoring from a checkpoint that contains no buffer
+            #   data.
+            # - This is False AND restoring from a checkpoint that does contain
+            #   buffer data.
+            "store_buffer_in_checkpoints": True,
+            # If True prioritized replay buffer will be used.
+            "prioritized_replay": True,
+            # Alpha parameter for prioritized replay buffer.
+            "prioritized_replay_alpha": 0.6,
+            # Beta parameter for sampling from prioritized replay buffer.
+            "prioritized_replay_beta": 0.4,
+            # Epsilon to add to the TD errors when updating priorities.
+            "prioritized_replay_eps": 1e-6,
+            # Whether to LZ4 compress observations
+            "compress_observations": True,
+            # The intensity with which to update the model (vs collecting samples from
+            # the env). If None, uses the "natural" value of:
+            # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
+            # `num_envs_per_worker`).
+            # If provided, will make sure that the ratio between ts inserted into and
+            # sampled from the buffer matches the given value.
+            # Example:
+            #   training_intensity=1000.0
+            #   train_batch_size=250 rollout_fragment_length=1
+            #   num_workers=1 (or 0) num_envs_per_worker=1
+            #   -> natural value = 250 / 1 = 250.0
+            #   -> will make sure that replay+train op will be executed 4x as
+            #      often as rollout+insert op (4 * 250 = 1000).
+            # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
+            "training_intensity": None,
+            # === Optimization ===
+            # Learning rate for the critic (Q-function) optimizer.
+            "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
+            # Learning rate for the actor (policy) optimizer.
+            "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.001, 100, 0.85),
+            # Update the target network every `target_network_update_freq` steps.
+            "target_network_update_freq": 1,
+            # Update the target by \tau * policy + (1-\tau) * target_policy
+            "tau": 0.002,
+            # If True, use huber loss instead of squared loss for critic network
+            # Conventionally, no need to clip gradients if using a huber loss
+            "use_huber": False,
+            # Threshold of a huber loss
+            "huber_threshold": 1.0,
+            # Weights for L2 regularization
+            "l2_reg": 1e-6,
+            # If not None, clip gradients during optimization at this value
+            "grad_clip": None,
+            # How many steps of the model to sample before learning starts.
+            "learning_starts": 1500,
+            # Update the replay buffer with this many samples at once. Note that this
+            # setting applies per-worker if num_workers > 1.
+            "rollout_fragment_length": 1,
+            # Size of a batched sampled from replay buffer for training. Note that
+            # if async_updates is set, then each worker returns gradients for a
+            # batch of this size.
+            "train_batch_size": 8,
+            "smooth_target_policy": True,
+            # === Parallelism ===
+            # Number of workers for collecting samples with. This only makes sense
+            # to increase if your environment is particularly slow to sample, or if
+            # you're using the Async or Ape-X optimizers.
+            "num_workers": 0,
+            # Whether to compute priorities on workers.
+            "worker_side_prioritization": False,
+            # Prevent reporting frequency from going lower than this time span.
+            "min_time_s_per_reporting": 1,
+            # Experimental flag.
+            # If True, the execution plan API will not be used. Instead,
+            # a Trainer's `training_iteration` method will be called as-is each
+            # training iteration.
+            "_disable_execution_plan_api": False,
+            "train_batch_size": 4,
+            # "num_gpus": 1,
+            # "fake_gpus": True,
+            # "simple_optimizer":True,
+        }
+    )
     DEFAULT_CONFIG["callbacks"] = WholesaleNormalizeRewardCallback
-        
 
     path_log = os.environ.get("DATA_DIR", "logs/")
 
@@ -528,7 +525,7 @@ def start_policy_server():
     tune.run(
         trainer_name,
         config=DEFAULT_CONFIG,
-        #callbacks=[WholesaleNormalizeRewardCallback],
+        # callbacks=[WholesaleNormalizeRewardCallback],
         stop=None,
         checkpoint_at_end=True,
         checkpoint_freq=500,
@@ -536,8 +533,8 @@ def start_policy_server():
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
         name=f"{trainer_name}_simple_newaction_3",
-        resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
+        resume="AUTO",  # If the trial failed use restore="path_to_checkpoint" instead.
         mode="max",
-        max_failures = -1,
-        #restore="logs/TD3_simple1/TD3_None_81935_00000_0_2022-07-30_10-22-26/checkpoint_015500/checkpoint-15500"
-        )
+        max_failures=-1,
+        # restore="logs/TD3_simple1/TD3_None_81935_00000_0_2022-07-30_10-22-26/checkpoint_015500/checkpoint-15500"
+    )

@@ -1,21 +1,21 @@
 import json
 import logging
+import math
 import os
 import pwd
+import time
 from cmath import e
 from pathlib import Path
 from posixpath import split
-import time
 from typing import Optional
-import math
 
 import dotenv
 import numpy as np
 import pandas as pd
+import requests
 from fastapi import HTTPException
 from ray import serve
 from ray.rllib.env import PolicyClient
-import requests
 from starlette.requests import Request
 
 from is3_broker_rl.api.fastapi_app import fastapi_app
@@ -25,8 +25,8 @@ from is3_broker_rl.api.wholesale_dto import (
     GetActionRequest,
     LogReturnsRequest,
     Observation,
+    ProsumptionRequest,
     StartEpisodeRequest,
-    ProsumptionRequest
 )
 from is3_broker_rl.conf import setup_logging
 from is3_broker_rl.model.wholesale_policy_server import SERVER_ADDRESS, SERVER_BASE_PORT
@@ -53,7 +53,7 @@ class WholesaleController:
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
         self._log.info("Wholesale init done.")
-        #self.bootstrap_action("wholesale_reward.csv")
+        # self.bootstrap_action("wholesale_reward.csv")
 
     def _check_episode_started(self):
         if not self._episode:
@@ -100,9 +100,9 @@ class WholesaleController:
             # Preprocess obs:
             obs = self._standardize_observation(self.last_obs)
             action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
-            #self._log.debug(f"Action: {action}")
+            # self._log.debug(f"Action: {action}")
             # just to save the raw action for easier access later.
-            self.raw_action= ""
+            self.raw_action = ""
             for act in action:
                 act1 = str(act)
                 self.raw_action = self.raw_action + ";" + act1
@@ -110,8 +110,8 @@ class WholesaleController:
             # Transform the action space from [-1:1] to [0:100] for the price.
             # The sign is applied.
             #  See powertac game specification.
-            #action_scaled = np.zeros((48))
-            #for i in range(48):
+            # action_scaled = np.zeros((48))
+            # for i in range(48):
             #    if i % 2 == 0:
             #        action_scaled[i] = action[i] * 50
             #        temp_action = action_scaled[i]
@@ -125,22 +125,22 @@ class WholesaleController:
 
             for i in range(48):
                 if i % 2 == 0:
-                    action_scaled[i] = self.last_obs.p_customer_prosumption[int(i/2)]/1000 * action[int(i/2)]
+                    action_scaled[i] = self.last_obs.p_customer_prosumption[int(i / 2)] / 1000 * action[int(i / 2)]
                     temp_action = action_scaled[i]
                 else:
                     if temp_action < 0:
                         sign = 1
                     else:
                         sign = -1
-                    price = self.last_obs.p_wholesale_price[int((i-1)/2)]
-                    # Just check if price is negative to help learning. 
+                    price = self.last_obs.p_wholesale_price[int((i - 1) / 2)]
+                    # Just check if price is negative to help learning.
                     # TODO: Check later how often it actually is negative.
                     if price < 0:
                         sign = -1
                         price = 1
                     # Action ranges from -1 to 1.
                     # Adding +1 results in a price distribution from 0% to 200%.
-                    action_scaled[i] = ((1+ action[int((i-1)/2)]) * price) * sign
+                    action_scaled[i] = ((1 + action[int((i - 1) / 2)]) * price) * sign
 
             self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
@@ -160,24 +160,26 @@ class WholesaleController:
         try:
             reward = request.reward / 100000
             balancing_reward = request.balancing_reward / 100000
-            wholesale_reward =request.wholesale_reward / 100000
+            wholesale_reward = request.wholesale_reward / 100000
             tariff_reward = request.tariff_reward / 100000
             # Adding reward shaping with the difference between the market prices and our prices.
             # Percentage difference between actual and our prices?
             sum_mWh = request.sum_mWh
             final_market_balance = request.final_market_balance
-            i=0
-            
-            shaped_return = abs( final_market_balance - sum_mWh) / -100
-            shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
-            
-            final_reward = shaped_return2  #shaped_return#balancing_reward + wholesale_reward #+ tariff_reward
+            i = 0
+
+            shaped_return = abs(final_market_balance - sum_mWh) / -100
+            shaped_return2 = abs(final_market_balance - (self.last_obs.p_customer_prosumption[0] / 1000)) * -1
+
+            final_reward = shaped_return2  # shaped_return#balancing_reward + wholesale_reward #+ tariff_reward
             self._log.info(f"Only shaped_reward: {shaped_return}, mWh {sum_mWh}, mb {final_market_balance}")
-            #reward = reward + shaped_return
+            # reward = reward + shaped_return
             self._log.info(f"Called log_returns with {final_reward}.")
             self._check_episode_started()
 
-            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, shaped_return, sum_mWh)
+            self._persist_reward(
+                final_reward, balancing_reward, wholesale_reward, tariff_reward, shaped_return, sum_mWh
+            )
             self._policy_client.log_returns(self._episode.episode_id, final_reward)
         except Exception as e:
             self._log.error(f"Log reward error: {e}", exc_info=True)
@@ -200,8 +202,7 @@ class WholesaleController:
         self.last_obs.customer_change = self.cc_change[self.cc_i]
         #
         self.cc_change[self.cc_i] = request.customer_count
-        
-        
+
         obs = self._standardize_observation(self.last_obs)
         self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
         self._episode = None
@@ -240,8 +241,6 @@ class WholesaleController:
                 prosumptionPerGroup=self.prosumptionPerGroup.tolist(),
             )
 
-            
-
             self.finished_observation = True
         except Exception as e:
             self._log.error(f"Observation building error: {e}", exc_info=True)
@@ -253,18 +252,26 @@ class WholesaleController:
             os.makedirs(self._DATA_DIR, exist_ok=True)
             self.last_action_str = action
             observation = self.last_obs
-            #df = pd.DataFrame(
+            # df = pd.DataFrame(
             #    {"episode_id": self._episode.episode_id, "observation": observation.json(), "action": action}, index=[0]
-            #)
-            #self._log.debug(df.iloc[0].to_json())
+            # )
+            # self._log.debug(df.iloc[0].to_json())
 
-            #file = self._DATA_DIR / "wholesale_action.csv"
-            #header = False if os.path.exists(file) else True
-            #df.to_csv(file, mode="a", index=False, header=header)
+            # file = self._DATA_DIR / "wholesale_action.csv"
+            # header = False if os.path.exists(file) else True
+            # df.to_csv(file, mode="a", index=False, header=header)
         except Exception as e:
             self._log.error(f"Persist action error {e}", exc_info=True)
 
-    def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, shaped_return: float, sum_mWh: float) -> None:
+    def _persist_reward(
+        self,
+        reward: float,
+        balancing_reward: float,
+        wholesale_reward: float,
+        tariff_reward: float,
+        shaped_return: float,
+        sum_mWh: float,
+    ) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         observation = self.last_obs.json()
@@ -275,9 +282,9 @@ class WholesaleController:
             {
                 "episode_id": self._episode.episode_id,
                 "reward": reward,
-                "balancing_reward":balancing_reward,
-                "wholesale_reward":wholesale_reward,
-                "tariff_reward":tariff_reward,
+                "balancing_reward": balancing_reward,
+                "wholesale_reward": wholesale_reward,
+                "tariff_reward": tariff_reward,
                 "shaped_return": shaped_return,
                 "observation": observation,
                 "last_action": action,
@@ -389,7 +396,7 @@ class WholesaleController:
                 prosumptionPerGroup=obs.prosumptionPerGroup,
             )
             x = scaled_obs.total_prosumption
-            
+
             self._log.debug(f"Scaled Obs: {scaled_obs}")
         except Exception as e:
             self._log.error(f"Scaling obs error {e}", exc_info=True)
@@ -407,15 +414,14 @@ class WholesaleController:
 
         return return_list
 
-
     def bootstrap_action(self, reward_csv_name):
         try:
 
             episode_id = self._policy_client.start_episode(training_enabled=True)
             self._episode = Episode(episode_id=episode_id)
             os.makedirs(self._DATA_DIR, exist_ok=True)
-            file = self._DATA_DIR / reward_csv_name 
-            
+            file = self._DATA_DIR / reward_csv_name
+
             df = pd.read_csv(file)
             self._log.info(f"{df.iloc[0]}")
             cc_i = 0
@@ -425,7 +431,7 @@ class WholesaleController:
                 obs = json.loads(row["observation"])
                 if obs.get("customer_change") == None:
                     self.last_obs = cc_change[cc_i]
-                    # 
+                    #
                     cc_change_value = cc_change[cc_i]
                     cc_i += 1
                     # Loop back to one so it visits the right value after 24h.
@@ -444,38 +450,42 @@ class WholesaleController:
                     p_cloud_cover=obs.get("p_cloud_cover"),
                     p_temperature=obs.get("p_temperature"),
                     p_wind_speed=obs.get("p_wind_speed"),
-                    cleared_orders_price=obs.get("cleared_orders_price"),  # Inputs empty values. These will be filled later.
-                    cleared_orders_energy=obs.get("cleared_orders_energy"),  # Inputs empty values. These will be filled later.
-                    cleared_trade_price=obs.get("cleared_trade_price"), # Inputs empty values. These will be filled later.
-                    cleared_trade_energy=obs.get("cleared_trade_energy"),  # Inputs empty values. These will be filled later.
+                    cleared_orders_price=obs.get(
+                        "cleared_orders_price"
+                    ),  # Inputs empty values. These will be filled later.
+                    cleared_orders_energy=obs.get(
+                        "cleared_orders_energy"
+                    ),  # Inputs empty values. These will be filled later.
+                    cleared_trade_price=obs.get(
+                        "cleared_trade_price"
+                    ),  # Inputs empty values. These will be filled later.
+                    cleared_trade_energy=obs.get(
+                        "cleared_trade_energy"
+                    ),  # Inputs empty values. These will be filled later.
                     customer_count=obs.get("customer_count"),
                     customer_change=cc_change_value,
                     total_prosumption=obs.get("total_prosumption"),
-                    percentageSubs = obs.get("percentageSubs"),
-                    prosumptionPerGroup = obs.get("prosumptionPerGroup"),
+                    percentageSubs=obs.get("percentageSubs"),
+                    prosumptionPerGroup=obs.get("prosumptionPerGroup"),
                     hour_of_day=obs.get("hour_of_day"),
                     day_of_week=obs.get("day_of_week"),
                     market_position=obs.get("market_position"),
                 )
                 obs = self._standardize_observation(obs)
-                #self._log.info(f"Obs feature: {obs.to_feature_vector()}")
+                # self._log.info(f"Obs feature: {obs.to_feature_vector()}")
                 reward = row["reward"]
                 action_str = row["last_action"]
                 raw_action_str = row["raw_action"]
-               
-                
-                
-                action = self.string_to_list(raw_action_str)
-                
 
-                #self._log.info(f"action: {action}")
+                action = self.string_to_list(raw_action_str)
+
+                # self._log.info(f"action: {action}")
 
                 self._policy_client.log_action(self._episode.episode_id, obs.to_feature_vector(), action)
 
-                    
                 self._policy_client.log_returns(self._episode.episode_id, reward)
-                
-            elapsed_time_fl = (time.time() - start)
+
+            elapsed_time_fl = time.time() - start
             self._log.info(f"Bootstrap finished. Time {elapsed_time_fl}")
 
             self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
@@ -484,44 +494,30 @@ class WholesaleController:
         except Exception as e:
             self._log.error(f"Bootstrap error {e}", exc_info=True)
 
-
-        #self._policy_client.end_episode(self._episode.episode_id,obs)
+        # self._policy_client.end_episode(self._episode.episode_id,obs)
         return
-
 
     @fastapi_app.post("/history")
     def log_customer_history(self, request: ProsumptionRequest) -> None:
         try:
-            
-            #prosumption = request.prosumption
+
+            # prosumption = request.prosumption
             i = 0
             variable = request.__dict__
             timeslot = variable.get("timeslot")
-            #self._log.info(f"timeslot {timeslot}")
+            # self._log.info(f"timeslot {timeslot}")
             prosumption = list(variable.get("prosumption").values())[0]
-            #self._log.info(f"Variable: {prosumption}")
+            # self._log.info(f"Variable: {prosumption}")
             groupName = variable["groupName"]
             if groupName > 0:
                 self.percentageSubs[groupName] = float(variable.get("percentageSubs"))
-                self.prosumptionPerGroup[groupName] = variable.get("prosumption").get(str(timeslot-1))
-                if i>18:
-                    i=0
-                    #self.last_obs.percentageSubs = self.percentageSubs
-                    #self.last_obs.prosumption = self.prosumption
+                self.prosumptionPerGroup[groupName] = variable.get("prosumption").get(str(timeslot - 1))
+                if i > 18:
+                    i = 0
+                    # self.last_obs.percentageSubs = self.percentageSubs
+                    # self.last_obs.prosumption = self.prosumption
 
-                i+=1
-
-
-
-                
- 
+                i += 1
 
         except Exception as e:
             self._log.error(f"prosumption_history error {e}", exc_info=True)
-
-
-
-
-    
-        
-

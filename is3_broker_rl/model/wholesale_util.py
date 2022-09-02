@@ -8,8 +8,8 @@ class Env_config:
     def __init__(self) -> None:
         l_bounds = []
         h_bounds = []
-        
-        # This looks like this, so we can change the state space with ease. 
+
+        # This looks like this, so we can change the state space with ease.
 
         l_bounds.append(np.array([-np.inf] * 24))  # p_grid_imbalance = 0
         h_bounds.append(np.array([np.inf] * 24))
@@ -17,22 +17,22 @@ class Env_config:
         h_bounds.append(np.array([np.inf] * 24))
         l_bounds.append(np.array([-np.inf] * 24))  # p_wholesale_price = 0
         h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # p_cloud_cover = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # p_temperature = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # p_wind_speed = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_price = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_energy = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_price = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_energy = 0
-        #h_bounds.append(np.array([np.inf] * 24))
-        #l_bounds.append(np.array([-np.inf] * 1))  # customer_count
-        #h_bounds.append(np.array([np.inf] * 1))
+        # l_bounds.append(np.array([-np.inf] * 24))  # p_cloud_cover = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 24))  # p_temperature = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 24))  # p_wind_speed = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_price = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_energy = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_price = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_energy = 0
+        # h_bounds.append(np.array([np.inf] * 24))
+        # l_bounds.append(np.array([-np.inf] * 1))  # customer_count
+        # h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 1))  # customer_change
         h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 1))  # total_prosumption
