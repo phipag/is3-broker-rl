@@ -41,7 +41,21 @@ dqn_config = with_common_config(
                     0,  # wholesalePrice
                     0,  # ownWholesalePrice
                     np.finfo(np.float32).min,  # cashPosition
-                    0,  # consumptionShare
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
+                    0,  # customerGroup subscription share
                     0,  # productionShare
                     0,  # marketPosition
                 ]
@@ -59,7 +73,21 @@ dqn_config = with_common_config(
                     # generous limit
                     1000,
                     np.finfo(np.float32).max,  # cashPosition
-                    1,  # consumptionShare
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
+                    1,  # customerGroup subscription share
                     1,  # productionShare
                     4,  # marketPosition
                 ]

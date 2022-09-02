@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import dotenv
 import pandas as pd
@@ -13,6 +13,7 @@ from typing_extensions import TypeGuard
 from is3_broker_rl.api.dto import (
     Action,
     ActionResponse,
+    CustomerGroup,
     EndEpisodeRequest,
     Episode,
     GetActionRequest,
@@ -91,12 +92,24 @@ class ConsumptionTariffController:
             )
         return True
 
+    def _flatten_observation_dict(self, observation: Observation) -> Dict[str, Union[int, float]]:
+        observation_dict: Dict[str, Union[int, float]] = {}
+        customer_groups: List[CustomerGroup] = observation.customerGroups
+        for group in customer_groups:
+            observation_dict[f"customer_{group.name}_share"] = group.subscription_share
+        observation_dict.update({key: value for key, value in observation.dict().items() if key != "customerGroups"})
+
+        return observation_dict
+
     def _persist_action(self, observation: Observation, action: Action) -> None:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         os.makedirs(self._DATA_DIR, exist_ok=True)
 
-        df = pd.DataFrame({"episode_id": self._episode.episode_id, **observation.dict(), **action.dict()}, index=[0])
+        df = pd.DataFrame(
+            {"episode_id": self._episode.episode_id, **self._flatten_observation_dict(observation), **action.dict()},
+            index=[0],
+        )
         self._log.debug(df.iloc[0].to_json())
 
         file = self._DATA_DIR / "consumption_action.csv"
@@ -109,13 +122,14 @@ class ConsumptionTariffController:
         self._check_episode_started()
         assert isinstance(self._episode, Episode)  # Make mypy happy
         os.makedirs(self._DATA_DIR, exist_ok=True)
+        self._log.debug(self._flatten_observation_dict(observation))
 
         df = pd.DataFrame(
             {
                 "episode_id": self._episode.episode_id,
                 "reward": reward,
                 **reward_info.dict(),
-                **observation.dict(),
+                **self._flatten_observation_dict(observation),
                 "last_tariff_rate_action": last_action.tariff_rate_action if last_action is not None else None,
                 "last_ppf_action": last_action.ppf_action if last_action is not None else None,
             },
@@ -159,7 +173,10 @@ class ConsumptionTariffController:
         self._log.info(
             f"Algorithm predicted action_id={action_id} which is action={action}. Persisting to .csv file ..."
         )
-        self._persist_action(request.observation, action)
+        try:
+            self._persist_action(request.observation, action)
+        except Exception as e:
+            self._log.exception(e)
 
         return ActionResponse(action=action)
 
@@ -170,7 +187,10 @@ class ConsumptionTariffController:
         assert isinstance(self._episode, Episode)  # Make mypy happy
 
         self._log.debug("Persisting reward to .csv file ...")
-        self._persist_reward(request.reward, request.reward_info, request.observation, request.last_action)
+        try:
+            self._persist_reward(request.reward, request.reward_info, request.observation, request.last_action)
+        except Exception as e:
+            self._log.exception(e)
 
         self._policy_client.log_returns(self._episode.episode_id, request.reward, info=request.reward_info.dict())
 

@@ -2,7 +2,7 @@
 This file contains the Data Transfer Objects (DTOs) used for API communication with the Java broker.
 """
 import enum
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -35,6 +35,19 @@ class MarketPosition(enum.IntEnum):
     NONE = 0
 
 
+class CustomerGroup(BaseModel):
+    name: str
+    total_population: int
+    subscribed_population: int
+
+    @property
+    def subscription_share(self) -> float:
+        if self.subscribed_population == 0:
+            return 0
+
+        return self.subscribed_population / self.total_population
+
+
 class Observation(BaseModel):
     gameId: str
     timeslot: int
@@ -45,10 +58,17 @@ class Observation(BaseModel):
     wholesalePrice: float
     ownWholesalePrice: float
     cashPosition: float
-    consumptionShare: float
+    customerGroups: List[CustomerGroup]
     productionShare: float
 
     def to_feature_vector(self) -> List[Union[float, int]]:
+        subscriptionSharePerCustomerGroup = [
+            group.subscription_share
+            for group in
+            # We sort the customerGroups to maintain the order in the feature_vector.
+            # This is important for the gym space.
+            sorted(self.customerGroups, key=lambda group: group.name)
+        ]
         return [
             self.timeslot,
             self.gridImbalance,
@@ -57,24 +77,10 @@ class Observation(BaseModel):
             self.wholesalePrice,
             self.ownWholesalePrice,
             self.cashPosition,
-            self.consumptionShare,
+            *subscriptionSharePerCustomerGroup,
             self.productionShare,
             self.marketPosition.value,
         ]
-
-    def to_feature_dict(self) -> Dict[str, Union[float, int]]:
-        return {
-            "timeslot": self.timeslot,
-            "gridImbalance": self.gridImbalance,
-            "ownImbalanceKwh": self.ownImbalanceKwh,
-            "customerNetDemand": self.customerNetDemand,
-            "wholesalePrice": self.wholesalePrice,
-            "ownWholesalePrice": self.ownWholesalePrice,
-            "cashPosition": self.cashPosition,
-            "consumptionShare": self.consumptionShare,
-            "productionShare": self.productionShare,
-            "marketPosition": self.marketPosition.value,
-        }
 
 
 class Episode(BaseModel):
