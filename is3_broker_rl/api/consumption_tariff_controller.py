@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import dotenv
 import pandas as pd
@@ -18,6 +18,7 @@ from is3_broker_rl.api.dto import (
     GetActionRequest,
     LogReturnsRequest,
     Observation,
+    PPFAction,
     Reward,
     StartEpisodeRequest,
     TariffRateAction,
@@ -27,12 +28,41 @@ from is3_broker_rl.conf import setup_logging
 from is3_broker_rl.model.consumption_tariff_config import (
     SERVER_ADDRESS,
     SERVER_BASE_PORT,
+    dqn_config,
 )
 
 
 @serve.deployment(route_prefix="/consumption-tariff")
 @serve.ingress(fastapi_app)
 class ConsumptionTariffController:
+    _ACTION_ID_MAPPING: Dict[int, Tuple[TariffRateAction, PPFAction]] = {
+        0: (TariffRateAction.NO_OP, 0),  # Since NO_OP does nothing we can drop different combinations with PPFAction
+        1: (TariffRateAction.TRAILER, 0),
+        2: (TariffRateAction.TRAILER, 2),
+        3: (TariffRateAction.TRAILER, 4),
+        4: (TariffRateAction.TRAILER, 6),
+        5: (TariffRateAction.TRAILER, 8),
+        6: (TariffRateAction.TRAILER, 10),
+        7: (TariffRateAction.AVERAGE, 0),
+        8: (TariffRateAction.AVERAGE, 2),
+        9: (TariffRateAction.AVERAGE, 4),
+        10: (TariffRateAction.AVERAGE, 6),
+        11: (TariffRateAction.AVERAGE, 8),
+        12: (TariffRateAction.AVERAGE, 10),
+        13: (TariffRateAction.LEADER, 0),
+        14: (TariffRateAction.LEADER, 2),
+        15: (TariffRateAction.LEADER, 4),
+        16: (TariffRateAction.LEADER, 6),
+        17: (TariffRateAction.LEADER, 8),
+        18: (TariffRateAction.LEADER, 10),
+        19: (TariffRateAction.NEW_ITERATION, 0),
+        20: (TariffRateAction.NEW_ITERATION, 2),
+        21: (TariffRateAction.NEW_ITERATION, 4),
+        22: (TariffRateAction.NEW_ITERATION, 6),
+        23: (TariffRateAction.NEW_ITERATION, 8),
+        24: (TariffRateAction.NEW_ITERATION, 10),
+    }
+
     def __init__(self) -> None:
         # This runs in a Ray actor worker process, so we have to initialize the logging again
         dotenv.load_dotenv(override=False)
@@ -45,6 +75,14 @@ class ConsumptionTariffController:
         # (https://discuss.ray.io/t/externalenv-vs-external-application-clients/2371/2?u=phipag)
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
         self._episode: Optional[Episode] = None
+
+        if len(self._ACTION_ID_MAPPING) != dqn_config["action_space"].n:
+            msg = (
+                f"The implemented action ID mapping does not match the expected length of the gym action space of the "
+                f"RL model. Expected: {dqn_config['action_space'].n}, actual: {len(self._ACTION_ID_MAPPING)}"
+            )
+            self._log.error(msg)
+            raise SystemError(msg)
 
     def _check_episode_started(self) -> TypeGuard[Episode]:
         if self._episode is None:
@@ -89,14 +127,16 @@ class ConsumptionTariffController:
         header = False if os.path.exists(file) else True
         df.to_csv(file, mode="a", index=False, header=header)
 
-    def _get_tariff_rate_ppf_tuple(self, action_id: int) -> Tuple[TariffRateAction, int]:
+    @classmethod
+    def _get_tariff_rate_ppf_tuple(cls, action_id: int) -> Tuple[TariffRateAction, PPFAction]:
         """
-        Translates the returned action_id which is a number between 0 and 5 * 14 to a unique tariff rate and ppf action
+        Translates the returned action_id which is a number between 0 and 24 to a unique tariff rate and ppf action
         tuple.
         :param action_id: Action id returned by the RL algorithm
         :return: Action tuple where first entry is the tariff rate action and the second entry the ppf action
         """
-        return TariffRateAction(action_id % 5), action_id % 14
+        # The validity of this access is checked in the constructor
+        return cls._ACTION_ID_MAPPING[action_id]
 
     @fastapi_app.post("/start-episode", response_model=Episode)
     def start_episode(self, request: StartEpisodeRequest) -> Episode:

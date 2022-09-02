@@ -68,10 +68,11 @@ dqn_config = with_common_config(
         ),
         # Normalize the observations
         "observation_filter": "MeanStdFilter",
-        # Each of the 5 * 14 values will be mapped to a tuple [tariff_rate, ppf]. There are 5 possible values for the
+        # Each of the 25 values will be mapped to a tuple [tariff_rate, ppf]. There are 5 possible values for the
         # tariff_rate market position (see is3_broker_rl.api.dto.TariffRateAction) target, and we consider ppf from
-        # 0 to 13.
-        "action_space": gym.spaces.Discrete(5 * 14),
+        # 0 to 10 in 2-steps. There for the NO_OP action there is only [0, 0] as action result.
+        # See: is3_broker_rl.api.consumption_tariff_controller.ConsumptionTariffController._get_tariff_rate_ppf_tuple
+        "action_space": gym.spaces.Discrete(25),
         # Normalize the rewards
         "callbacks": ConsumptionNormalizeRewardCallback,
         # Use n worker processes to listen on different ports.

@@ -15,9 +15,13 @@ class TariffRateAction(enum.IntEnum):
     NO_OP = 0
 
 
+# Use this in type hints to indicate that a PPFAction is returned
+PPFAction = int
+
+
 class Action(BaseModel):
     tariff_rate_action: TariffRateAction
-    ppf_action: int
+    ppf_action: PPFAction
 
 
 class ActionResponse(BaseModel):
