@@ -42,7 +42,7 @@ class CustomerGroup(BaseModel):
 
     @property
     def subscription_share(self) -> float:
-        if self.subscribed_population == 0:
+        if self.total_population == 0:
             return 0
 
         return self.subscribed_population / self.total_population
@@ -99,6 +99,7 @@ class EndEpisodeRequest(BaseModel):
 class Reward(BaseModel):
     consumption_profit: float
     action_penalty: float
+    consumption_share_penalty: float
     consumption_fees: float
     balancing_costs: float
     capacity_costs: float
