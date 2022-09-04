@@ -54,6 +54,7 @@ class WholesaleController:
         self.cc_change = np.zeros((24))
         self.temp_obs = []
         self.temp_final_market_balance = []
+        self.finished_observation = False
 
         # Also loads the model if false
         self.save_model = False
@@ -62,24 +63,28 @@ class WholesaleController:
         self.last_pred = []
         self.hist_sum_mWh = np.zeros((48))
         self.time_i = 0
+        self.episode_i = 0
         self.percentageSubs = np.zeros((20))
         self.prosumptionPerGroup = np.zeros((20))
         self.saved_action = np.zeros((24*24*2))
         self._log.debug(f"Policy client actor using environment variables: {os.environ}")
         
         self._policy_client = PolicyClient(f"http://{SERVER_ADDRESS}:{SERVER_BASE_PORT}", inference_mode="remote")
-        self._episode: Optional[Episode] = None
+        #self._episode: Optional[Episode] = None
+        self._episodes = []
         self._log.info("Wholesale init done.")
-        self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
+        #self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
 
-    def _check_episode_started(self):
-        if not self._episode:
-            raise HTTPException(
-                status_code=412, detail="Cannot call this method before starting an episode. Call /start-episode first."
-            )
+    #def _check_episode_started(self):
+    #    if not self._episode:
+    #        raise HTTPException(
+    #            status_code=412, detail="Cannot call this method before starting an episode. Call /start-episode first."
+    #        )
 
+    # Starting Episodes moved from the java part to the rl part.
     @fastapi_app.post("/start-episode")
     def start_episode(self, request: StartEpisodeRequest) -> Episode:
+        return Episode(episode_id="0")
         self._log.debug(f"Called start_episode with {request}.")
         try:
             episode_id = self._policy_client.start_episode(training_enabled=True)
@@ -90,10 +95,18 @@ class WholesaleController:
         self.finished_observation = False
         return self._episode
 
+
     @fastapi_app.post("/get-action")
-    def get_action(self, request: GetActionRequest):
+    async def get_action(self, request: GetActionRequest):
         try:
-            self._check_episode_started()
+            #self._check_episode_started()
+            # Return NaN, so the broker can wait until the observation has arrived.
+            if self.finished_observation == False:
+                return "NaN"
+            #    self._log.info("Observation not arrived. Waiting 0.1 sec.")
+            #    time.sleep(0.1)
+            #    await self.check_finished()
+#
             self.finished_observation = False
             # Own cleared trades
             self.last_obs.cleared_orders_price = self.string_to_list(request.cleared_orders_price)
@@ -126,7 +139,38 @@ class WholesaleController:
             #self.last_obs.p_customer_prosumption = pred_list
             #self._log.info(f"obs after {self.last_obs}")
             obs = self._standardize_observation(self.last_obs)
-            action = self._policy_client.get_action(self._episode.episode_id, obs.to_feature_vector())
+            # When the an action is called, create a new episode for it. Create Episodes until there are 26 open. 
+            try:
+                for i in range(len(self._episodes),26):
+                    self._episodes.append(Episode(episode_id=self._policy_client.start_episode(training_enabled=True)))
+                    #self._log.info(f"Episode_id created: {self._episodes[i].episode_id}")
+                    # Need to this for the first 2 Episodes to aviod a crash due to a bug in ray 
+                    # caused by ending an episode before calling get_action once.
+                    if i < 3:
+
+                        self._policy_client.get_action(self._episodes[i].episode_id, obs.to_feature_vector(i))
+
+            except Exception as e:
+                self._log.error(f"Cant create episode.  {e}", exc_info=True)
+
+            action_list = np.zeros([48])
+            temp_i = 0
+            
+            for time_diff in range(24):
+                episode_id = self._episodes[time_diff +2].episode_id # Two floating episodes that are not called. 
+                #self._log.info(f"Call Episode_id: {episode_id}")
+                temp_action = self._policy_client.get_action(episode_id, obs.to_feature_vector(time_diff))
+                action_list[temp_i] = temp_action[0]
+                action_list[temp_i+1] = temp_action[1]
+                if temp_action[2] < 0:
+                    action_list[temp_i] = 0
+                    action_list[temp_i+1] = -1
+                temp_i +=2
+            
+            
+            # Transform into old action form so I do not break other code.
+            #self._log.info(f"Call actionlist: {*action_list}")
+            action = np.array([*action_list])
             #self._log.debug(f"Action: {action}")
             # just to save the raw action for easier access later.
             self.raw_action= ""
@@ -162,7 +206,7 @@ class WholesaleController:
                         market_position  = self.last_obs.market_position[int((i/2))+1]
                     # Abs here because the action should decide whether to buy or sell.
                     
-                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]*  - market_position)) * action[int(i)]
+                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]  - market_position)) * action[int(i)]
                     
                     #if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
                     #    temp_action = action_scaled[i] * -1
@@ -225,9 +269,9 @@ class WholesaleController:
             if len(self.temp_final_market_balance) >1:
                 reward_market_balance = self.temp_final_market_balance.pop(0)
 
-            
+                
 
-                shaped_return = abs( final_market_balance - self.last_obs.needed_mWh[0]) / -100
+                shaped_return = abs( reward_market_balance - sum_mWh) / -100
             #shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
             
             #final_reward = balancing_reward + wholesale_reward #+ tariff_reward
@@ -241,16 +285,27 @@ class WholesaleController:
                 final_reward = 0
                 reward_market_balance = 0
 
-            self._check_episode_started()
-            #self.train_sum_mWh_diff(self.last_obs, sum_mWh)
-            self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, reward_market_balance, sum_mWh)#, final_market_balance)
-            self._policy_client.log_returns(self._episode.episode_id, final_reward)
+            if len(self._episodes) >=26:
+                episode_id = self._episodes.pop(0).episode_id
+                #self._check_episode_started()
+                #self.train_sum_mWh_diff(self.last_obs, sum_mWh)
+                self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, reward_market_balance, sum_mWh)#, final_market_balance)
+                self._policy_client.log_returns(episode_id, final_reward, info={"reward" : final_reward})
+                obs = self._standardize_observation(self.last_obs)
+                #self._log.info(f"End Episode_id: {episode_id}")
+                self._policy_client.end_episode(episode_id, obs.to_feature_vector(time_diff=0))
+            else:
+                self._log.info("Not enough Episodes to give reward.")
         except Exception as e:
             self._log.error(f"Log reward error: {e}", exc_info=True)
-            return ""
-
+            return 
+ 
+    # Only used as SimEndRequest.
     @fastapi_app.post("/end-episode")
     def end_episode(self, request: EndEpisodeRequest) -> None:
+        self._log.info("Sim Ended.")
+        return
+
         try:
             self._log.debug(f"Called end_episode with {request}.")
             self._check_episode_started()
@@ -333,8 +388,8 @@ class WholesaleController:
 
     def _persist_action(self, action) -> None:
         try:
-            self._check_episode_started()
-            assert isinstance(self._episode, Episode)  # Make mypy happy
+            #self._check_episode_started()
+            #assert isinstance(self._episode, Episode)  # Make mypy happy
             os.makedirs(self._DATA_DIR, exist_ok=True)
             self.last_action_str = action
             observation = self.last_obs
@@ -351,15 +406,15 @@ class WholesaleController:
 
     def _persist_reward(self, reward: float, balancing_reward: float, wholesale_reward: float, tariff_reward: float, 
                         shaped_return: float, sum_mWh: float):#, final_market_balance: float) -> None:
-        self._check_episode_started()
-        assert isinstance(self._episode, Episode)  # Make mypy happy
+        #self._check_episode_started()
+        #assert isinstance(self._episode, Episode)  # Make mypy happy
         observation = self.last_obs.json()
         action = self.last_action_str
         os.makedirs(self._DATA_DIR, exist_ok=True)
 
         df = pd.DataFrame(
             {
-                "episode_id": self._episode.episode_id,
+                "episode_id": self._episodes[0].episode_id,
                 "reward": reward,
                 "balancing_reward":balancing_reward,
                 "wholesale_reward":wholesale_reward,
@@ -503,11 +558,10 @@ class WholesaleController:
     def bootstrap_action(self, reward_csv_name):
         try:
 
-            episode_id = self._policy_client.start_episode(training_enabled=True)
-            self._episode = Episode(episode_id=episode_id)
+            #episode_id = self._policy_client.start_episode(training_enabled=True)
+            #self._episode = Episode(episode_id=episode_id)
             os.makedirs(self._DATA_DIR, exist_ok=True)
             file = self._DATA_DIR / reward_csv_name 
-            
             df = pd.read_csv(file)
             self._log.info(f"{df.iloc[0]}")
             cc_i = 0
@@ -598,19 +652,38 @@ class WholesaleController:
                 
                 action = self.string_to_list(raw_action_str)
                 
+                # Transform old action (As is saved in the .csv) into new action to log into the policy_client.
+                for i in range(len(self._episodes),26):
+                    self._episodes.append(Episode(episode_id=self._policy_client.start_episode(training_enabled=True)))
+                    # Avoid closing episodes without action. This would break ray.
+                    if i < 3:
 
-                #self._log.info(f"action: {action}")
+                        self._policy_client.get_action(self._episodes[i].episode_id, obs.to_feature_vector(i))
 
-                self._policy_client.log_action(self._episode.episode_id, obs.to_feature_vector(), action)
 
-                    
-                self._policy_client.log_returns(self._episode.episode_id, reward)
+                for time_diff in range(24):
+                    episode_id = self._episodes[time_diff +2].episode_id # Two floating episodes that are not called. 
+                    #self._log.info(f"Here{time_diff}")
+                    action_input = np.array([action[time_diff*2], action[(time_diff*2)+1], 1.0])
+                    if (action_input[0] == 0) & (action_input[1] == 1):
+                        action_input[2] = -0.8
+                    #self._log.info(f"Action_input: {action_input}")
+                    #self._log.info(f"Obs: {obs.to_feature_vector(time_diff)}")
+                    #self._log.info(f"Episode_id: {episode_id}")
+                    self._policy_client.log_action(episode_id, observation=obs.to_feature_vector(time_diff), action=action_input)
+
+                    #self._policy_client.log_action(self._episode.episode_id, obs.to_feature_vector(), action)
+
+                episode_id = self._episodes.pop(0).episode_id
+                self._policy_client.log_returns(episode_id, reward, info={"reward_from_log" : reward}, done=True)
+                #self._log.info("Here8")
+                self._policy_client.end_episode(episode_id, obs.to_feature_vector(0))
                 
             elapsed_time_fl = (time.time() - start)
             self._log.info(f"Bootstrap finished. Time {elapsed_time_fl}")
 
-            self._policy_client.end_episode(self._episode.episode_id, obs.to_feature_vector())
-            self._episode = None
+            
+            self._episodes = None
 
         except Exception as e:
             self._log.error(f"Bootstrap error {e}", exc_info=True)

@@ -1,9 +1,11 @@
 # `InputReader` generator (returns None if no input reader is needed on
 # the respective worker).
+from email.mime import base
 from functools import partial
 from gc import callbacks
 import logging
 import os
+import numpy as np
 import ray
 import tensorflow as tf
 from ray.rllib.agents.callbacks import RE3UpdateCallbacks
@@ -19,14 +21,92 @@ from ray.rllib.evaluation import Episode, RolloutWorker
 from ray.rllib.policy import Policy
 from ray.rllib.policy.sample_batch import SampleBatch
 
-from typing import Dict, Tuple
+from ray.rllib.utils.typing import AgentID, EnvType, PolicyID
+from ray.rllib.utils.annotations import override
+from typing import Dict, Tuple, Union
 import argparse
 
 SERVER_ADDRESS = "localhost"
 SERVER_BASE_PORT = 9920
 N_WORKERS = 0
 
+
+# See https://github.com/ray-project/ray/blob/master/rllib/examples/custom_metrics_and_callbacks.py
 class MyCallbacks(DefaultCallbacks):
+
+
+    
+    def __init__(self, legacy_callbacks_dict: Dict[str, callable] = None):
+        super().__init__(legacy_callbacks_dict)
+        logging.basicConfig(level=logging.INFO)
+        self.last_reward = 0
+
+    def on_episode_start(
+        self,
+        *,
+        worker: RolloutWorker,
+        base_env: BaseEnv,
+        policies: Dict[str, Policy],
+        episode: Episode,
+        env_index: int,
+        **kwargs
+    ):
+        episode.user_data["env_reward"] = []
+        episode.hist_data["env_reward"] = []
+        
+        
+    def on_episode_end(
+        self,
+        *,
+        worker: "RolloutWorker",
+        base_env: BaseEnv,
+        policies: Dict[PolicyID, Policy],
+        episode: Episode,
+        **kwargs,
+    ) -> None:
+        """Runs when an episode is done.
+        Args:
+            worker: Reference to the current rollout worker.
+            base_env: BaseEnv running the episode. The underlying
+                sub environment objects can be retrieved by calling
+                `base_env.get_sub_environments()`.
+            policies: Mapping of policy id to policy
+                objects. In single agent mode there will only be a single
+                "default_policy".
+            episode: Episode object which contains episode
+                state. You can use the `episode.user_data` dict to store
+                temporary data, and `episode.custom_metrics` to store custom
+                metrics for the episode.
+            kwargs: Forward compatibility placeholder.
+        """
+        try:
+            logging.info(f"Episode_end: hist reward: {episode.hist_data['env_reward']}")
+
+            logging.info(f"Episode_end: user data reward: {episode.user_data['env_reward']}")
+        
+            logging.info(f"Episode_end: user data reward: {episode}")
+            
+        except Exception as e:
+            logging.error(f"Get Action error: {e}", exc_info=True)
+
+
+    def on_sample_end(
+        self, *, worker: "RolloutWorker", samples: SampleBatch, **kwargs
+    ) -> None:
+        """Called at the end of RolloutWorker.sample().
+        Args:
+            worker: Reference to the current rollout worker.
+            samples: Batch to be returned. You can mutate this
+                object to modify the samples generated.
+            kwargs: Forward compatibility placeholder.
+        """
+        try:
+            a= 1
+            #logging.info(samples.split_by_episode())
+        except Exception as e:
+            logging.error(f"Get Action error: {e}", exc_info=True)
+
+    @override(DefaultCallbacks)
     def on_postprocess_trajectory(
         self,
         *,
@@ -39,13 +119,95 @@ class MyCallbacks(DefaultCallbacks):
         original_batches: Dict[str, Tuple[Policy, SampleBatch]],
         **kwargs
     ):
+        
         try:
-            print("here1")
-            print("postprocessed {} steps".format(postprocessed_batch["rewards"]))
-            #o_b = original_batches[original_batches.keys()]["rewards"]
-            #print(f"Original batch: {o_b}")
+            #print(f"episode {episode}")
+            #print("postprocessed {} ".format())
+            # Do this on_episode_start to initialize the list.
+            logging.info(f"on_postprocess_trajectory: last_reward reward: {self.last_reward}")
+        #
+            #logging.info(f"on_postprocess_trajectory: user data reward: {episode.user_data['env_reward']}")
+        #
+            logging.info(f"on_postprocess_trajectory: user data reward: {episode}")
+            #
+            logging.info(f"on_postprocess_trajectory: user data reward: {episode.last_action_for()}")
+
+            # set the reward to the reward for the whole batch. 
+            reward = postprocessed_batch["rewards"]
+            new_reward = np.ones((len(reward))) *-1
+            if len(reward) <= 100:
+                if reward[len(reward)-1] != 0.0:
+                    
+                    i = 0
+                    for value in reward:
+                        new_reward[i] = reward[len(reward)-1]
+                        i+=1
+                    postprocessed_batch["rewards"] = new_reward
+                    self.last_reward = reward[len(reward)-1]
+                    episode.user_data["env_reward"].append(reward[len(reward)-1])
+                    
+                    episode.hist_data["env_reward"].append(reward[len(reward)-1])
+                else:
+                    logging.info(postprocessed_batch["rewards"])
+                    postprocessed_batch["rewards"] = new_reward
+            else:
+                logging.info(f"len of reward not 24 instead: {len(reward)}")
+
+
+            #batch = episode.new_batch_builder()
+            #for each transition:
+            #    batch.add_values(...)  # see sampler for usage
+            #episode.extra_batches.add(batch.build_and_reset())
+            env_reward = episode.user_data["env_reward"]
+            return_reward = postprocessed_batch["rewards"]
+            episode_info = episode.hist_data["env_reward"]
+            #episode_info2 = episode.last_pi_info_for()
+            episode_id = episode.episode_id
+            logging.info(f"new_reward {return_reward}, , env_reward={env_reward}")
+            logging.info(f"episode {episode_info}, , episode_id={episode_id}")
+            
+            # TODO: Here we could penalize actions more if they contribute to huge losses.
+            #super().on_postprocess_trajectory(
+            #        worker=worker,
+            #        episode=episode,
+            #        agent_id=agent_id,
+            #        policy_id=policy_id,
+            #        policies=policies,
+            #        postprocessed_batch=postprocessed_batch,
+            #        original_batches=original_batches,
+            #        **kwargs
+            #    )
         except Exception as e:
-            self._log.error(f"Get Action error: {e}", exc_info=True)
+            logging.error(f"Get Action error: {e}", exc_info=True)
+
+
+    def on_learn_on_batch(
+        self, *, policy: Policy, train_batch: SampleBatch, result: dict, **kwargs
+    ) -> None:
+            try:
+                a = 0
+                #train_batch["rewards"]
+                logging.info(
+                    "policy.learn_on_batch() result: {} ->  rewards: {}".format(
+                        policy, train_batch["rewards"]
+                    )
+                )
+                #logging.info(
+                #    "policy.learn_on_batch() result: {} ->  episode ids: {}, {}, {}".format(
+                #        policy, train_batch["eps_id"], train_batch["infos"],  train_batch["actions"]
+                #    )
+                #    )
+                #logging.info(
+                #    "policy.learn_on_batch() result: {}".format(
+                #        train_batch["infos"]
+                #    )
+                #    )
+                #    #train_batch.
+                    
+                    
+            except Exception as e:
+                logging.error(f"Get Action error: {e}", exc_info=True)
+
         
 
 def _input(ioctx):
@@ -67,8 +229,8 @@ def start_policy_server():
     env_config = Env_config()
     observation_space, action_space = env_config.get_gym_spaces()
     
-    trainer_name = "SAC"
-    enable_RE3_exploration = True
+    trainer_name = "TD3"
+    enable_RE3_exploration = False
 
 
     if trainer_name == "PPO":
@@ -126,6 +288,9 @@ def start_policy_server():
             "observation_space": observation_space,
             "action_space": action_space,
             "input": _input,
+            "framework": "tf2",
+            # Prevents learning on batches that do not have the right reward set.
+            "batch_mode": "complete_episodes",
             # === Model ===
             # Use two Q-networks (instead of one) for action-value estimation.
             # Note: Each Q-network will have its own target network.
@@ -149,9 +314,9 @@ def start_policy_server():
             # do in the top-level `model` dict.
             # N-step target updates. If >1, sars' tuples in trajectories will be
             # postprocessed to become sa[discounted sum of R][s t+n] tuples.
-            "n_step": 24,
+            "n_step": 1,
             # Number of env steps to optimize for before returning.
-            "timesteps_per_iteration": 1,
+            "timesteps_per_iteration": 24,
             # The intensity with which to update the model (vs collecting samples from
             # the env). If None, uses the "natural" value of:
             # `train_batch_size` / (`rollout_fragment_length` x `num_workers` x
@@ -170,15 +335,15 @@ def start_policy_server():
             # Update the replay buffer with this many samples at once. Note that this
             # setting applies per-worker if num_workers > 1.
             
-            "rollout_fragment_length": 8,
+            "rollout_fragment_length": 24,
             # Size of a batched sampled from replay buffer for training.
-            "train_batch_size": 8,
+            "train_batch_size": 24,
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
             # === Optimization ===
             "optimization": {
-                "actor_learning_rate": 3e-6,
-                "critic_learning_rate": 3e-5,
+                "actor_learning_rate": 3e-5,
+                "critic_learning_rate": 3e-4,
                 "entropy_learning_rate": 3e-5,
             },
             "input_evaluation": [],
@@ -210,12 +375,12 @@ def start_policy_server():
                 "type": "MultiAgentReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 1,
+                "learning_starts": 100,
                 "storage_unit": "timesteps",
             
             
                 # If True prioritized replay buffer will be used.
-                #"prioritized_replay": True,
+                "prioritized_replay": True,
                 "prioritized_replay_alpha": 0.5,
                 "prioritized_replay_beta": 0.2,
                 "prioritized_replay_eps": 1e-5,
@@ -226,6 +391,7 @@ def start_policy_server():
             "tau" : 5e-4,
             "initial_alpha": 0.8,
             "target_entropy" :"auto",
+            "log_level" : "INFO",
             
         }
         DEFAULT_CONFIG = with_common_config(config)
@@ -248,6 +414,8 @@ def start_policy_server():
                     "type": "StochasticSampling",
                 },
             }
+        else:
+            DEFAULT_CONFIG["callbacks"] = MyCallbacks
 
     
     # See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
@@ -413,18 +581,18 @@ def start_policy_server():
         # Postprocess the policy network model output with these hidden layers. If
         # use_state_preprocessor is False, then these will be the *only* hidden
         # layers in the network.
-        "actor_hiddens": [400, 300, 200],
+        "actor_hiddens": [400, 300],
         # Hidden layers activation of the postprocessing stage of the policy
         # network
         "actor_hidden_activation": "relu",
         # Postprocess the critic network model output with these hidden layers;
         # again, if use_state_preprocessor is True, then the state will be
         # preprocessed by the model specified with the "model" config option first.
-        "critic_hiddens": [400, 300, 200],
+        "critic_hiddens": [200, 100],
         # Hidden layers activation of the postprocessing state of the critic.
         "critic_hidden_activation": "relu",
         # N-step Q learning
-        "n_step": 26, # The reward comes 2 timesteps late.
+        "n_step": 1, # The reward comes 2 timesteps late.
 
 
         # === Exploration ===
@@ -434,22 +602,23 @@ def start_policy_server():
             "type": "OrnsteinUhlenbeckNoise",
             # For how many timesteps should we return completely random actions,
             # before we start adding (scaled) noise?
-            "random_timesteps": 1000,
+            "random_timesteps": 5000,
             # The OU-base scaling factor to always apply to action-added noise.
-            "ou_base_scale": 0.1,
+            "ou_base_scale": 0.3,
             # The OU theta param.
-            "ou_theta": 0.15,
+            "ou_theta": 0.2,
             # The OU sigma param.
-            "ou_sigma": 0.2,
+            "ou_sigma": 0.4,
             # The initial noise scaling factor.
-            "initial_scale": 0.1,
+            "initial_scale": 0.7,
             # The final noise scaling factor.
             "final_scale": 0.0002,
             # Timesteps over which to anneal scale (from initial to final values).
             "scale_timesteps": 100000,
         },
         # Number of env steps to optimize for before returning
-        "timesteps_per_iteration": 1,
+        "timesteps_per_iteration": 24,
+        "log_level" : "INFO",
         # Extra configuration that disables exploration.
         "input_evaluation": [],
         # === Replay buffer ===
@@ -459,6 +628,7 @@ def start_policy_server():
             "type": "MultiAgentReplayBuffer",
             "capacity": 100000,
             "_enable_replay_buffer_api": True,
+            "prioritized_replay":True,
         },
         # Set this to True, if you want the contents of your buffer(s) to be
         # stored in any saved checkpoints as well.
@@ -471,13 +641,14 @@ def start_policy_server():
         # If True prioritized replay buffer will be used.
         "prioritized_replay": True,
         # Alpha parameter for prioritized replay buffer.
-        "prioritized_replay_alpha": 0.6,
+        "prioritized_replay_alpha": 0.8,
         # Beta parameter for sampling from prioritized replay buffer.
         "prioritized_replay_beta": 0.4,
         # Epsilon to add to the TD errors when updating priorities.
         "prioritized_replay_eps": 1e-6,
         # Whether to LZ4 compress observations
         "compress_observations": True,
+        "batch_mode": "complete_episodes",
         
         # The intensity with which to update the model (vs collecting samples from
         # the env). If None, uses the "natural" value of:
@@ -497,9 +668,9 @@ def start_policy_server():
 
         # === Optimization ===
         # Learning rate for the critic (Q-function) optimizer.
-        "critic_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
+        "critic_lr": 0.001, #tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
         # Learning rate for the actor (policy) optimizer.
-        "actor_lr": tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
+        "actor_lr": 0.0005,#tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
         # Update the target network every `target_network_update_freq` steps.
         "target_network_update_freq": 1,
         # Update the target by \tau * policy + (1-\tau) * target_policy
@@ -514,14 +685,14 @@ def start_policy_server():
         # If not None, clip gradients during optimization at this value
         "grad_clip": None,
         # How many steps of the model to sample before learning starts.
-        "learning_starts": 1500,
+        "learning_starts": 5000,
         # Update the replay buffer with this many samples at once. Note that this
         # setting applies per-worker if num_workers > 1.
-        "rollout_fragment_length": 1,
+        "rollout_fragment_length": 24,
         # Size of a batched sampled from replay buffer for training. Note that
         # if async_updates is set, then each worker returns gradients for a
         # batch of this size.
-        "train_batch_size": 8,
+
         "smooth_target_policy": True,
         # === Parallelism ===
         # Number of workers for collecting samples with. This only makes sense
@@ -531,13 +702,13 @@ def start_policy_server():
         # Whether to compute priorities on workers.
         "worker_side_prioritization": False,
         # Prevent reporting frequency from going lower than this time span.
-        "min_time_s_per_reporting": 1,
+        "min_time_s_per_reporting": 5,
         # Experimental flag.
         # If True, the execution plan API will not be used. Instead,
         # a Trainer's `training_iteration` method will be called as-is each
         # training iteration.
         "_disable_execution_plan_api": False,
-        "train_batch_size": 4,
+        "train_batch_size": 24,
         
         #"num_gpus": 1,
         #"fake_gpus": True,
@@ -545,6 +716,7 @@ def start_policy_server():
         })
 
     #DEFAULT_CONFIG["callbacks"] = WholesaleNormalizeRewardCallback
+    DEFAULT_CONFIG["callbacks"] = MyCallbacks
     
     #DEFAULT_CONFIG["callbacks"] = RE3UpdateCallbacks
     path_log = os.environ.get("DATA_DIR", "logs/")
@@ -561,7 +733,7 @@ def start_policy_server():
         verbose=3,
         local_dir=os.environ.get("DATA_DIR", "logs/"),
         log_to_file=True,
-        name=f"{trainer_name}_test_new_action_episodes1",
+        name=f"{trainer_name}_new_action_episodes_longstart",
         resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
         mode="max",
         max_failures = -1,

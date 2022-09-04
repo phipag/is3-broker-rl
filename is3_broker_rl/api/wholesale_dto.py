@@ -2,9 +2,14 @@
 This file contains the Data Transfer Objects (DTOs) used for API communication with the Java broker.
 """
 from typing import List
+import dotenv
 
 import numpy as np
 from pydantic import BaseModel
+from is3_broker_rl.conf import setup_logging
+import logging
+from pathlib import Path
+import os
 
 
 class Action(BaseModel):
@@ -42,32 +47,50 @@ class Observation(BaseModel):
     needed_mWh: List[float] = []
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
-    
 
-    # remember to change the observation space ;)
 
-    def to_feature_vector(self):
+    # remember to change the observation space in the wholsesale_util.py ;)
+
+    def to_feature_vector(self, time_diff: int):
+        print("Test")
+        if time_diff == 23:
+            market_position = 0
+        else:
+            market_position = self.market_position[time_diff]
+
+        if len(self.p_cloud_cover) != 24:
+            self.p_cloud_cover = [0]*24
+            print(f"not long enough: {self.p_cloud_cover}")
+        if len(self.p_temperature) != 24:
+            self.p_temperature = [0]*24
+            print(f"not long enough: {self.p_temperature}")
+        if len(self.p_wind_speed) != 24:
+            self.p_wind_speed = [0]*24
+            print(f"not long enough: {self.p_wind_speed}")
+
+
         return np.concatenate(
             (
-                np.array(self.p_grid_imbalance),
-                np.array(self.p_customer_prosumption),
-                np.array(self.p_wholesale_price),
-                np.array(self.p_cloud_cover),#
-                np.array(self.p_temperature),#
-                np.array(self.p_wind_speed),#
-                np.array(self.cleared_orders_price),#
-                np.array(self.cleared_orders_energy),#
-                np.array(self.cleared_trade_price),#
-                np.array(self.cleared_trade_energy),#
+                np.array([self.p_grid_imbalance[time_diff]]),
+                np.array([self.p_customer_prosumption[time_diff]]),
+                np.array([self.p_wholesale_price[time_diff]]),
+                np.array([self.p_cloud_cover[time_diff]]),
+                np.array([self.p_temperature[time_diff]]),
+                np.array([self.p_wind_speed[time_diff]]),
+                np.array([self.cleared_orders_price[time_diff]]),
+                np.array([self.cleared_orders_energy[time_diff]]),
+                np.array([self.cleared_trade_price[time_diff]]),
+                np.array([self.cleared_trade_energy[time_diff]]),
                 #np.array([self.customer_count]),#
                 np.array([self.customer_change]),
                 np.array([self.total_prosumption]),
-                np.array(self.market_position),
+                np.array([market_position]),
                 np.array(self.percentageSubs),
                 np.array(self.prosumptionPerGroup),
-                np.array(self.needed_mWh),
+                np.array([self.needed_mWh[time_diff]]),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
+                np.array([time_diff]),
             )
         )
     # For prediciton only:

@@ -11,44 +11,46 @@ class Env_config:
         
         # This looks like this, so we can change the state space with ease. 
 
-        l_bounds.append(np.array([-np.inf] * 24))  # p_grid_imbalance = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # p_customer_prosumption = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # p_wholesale_price = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # p_cloud_cover = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # p_temperature = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # p_wind_speed = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_price = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # cleared_orders_energy = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_price = 0
-        h_bounds.append(np.array([np.inf] * 24))
-        l_bounds.append(np.array([-np.inf] * 24))  # cleared_trade_energy = 0
-        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 1))  # p_grid_imbalance = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # p_customer_prosumption = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # p_wholesale_price = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # p_cloud_cover = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # p_temperature = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # p_wind_speed = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # cleared_orders_price = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # cleared_orders_energy = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # cleared_trade_price = 0
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # cleared_trade_energy = 0
+        h_bounds.append(np.array([np.inf] * 1))
         #l_bounds.append(np.array([-np.inf] * 1))  # customer_count
         #h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 1))  # customer_change
         h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 1))  # total_prosumption
         h_bounds.append(np.array([np.inf] * 1))
-        l_bounds.append(np.array([-np.inf] * 24))  # market_position = 0
-        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 1))  # market_position = 0
+        h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 20))  # percentageSubs
         h_bounds.append(np.array([np.inf] * 20))
         l_bounds.append(np.array([-np.inf] * 20))  # ProsumptionPerGroup
         h_bounds.append(np.array([np.inf] * 20))
-        l_bounds.append(np.array([-np.inf] * 24))  # NeededmWh
-        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 1))  # NeededmWh
+        h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 24))  # hour of the start with dummy.
         h_bounds.append(np.array([np.inf] * 24))
         l_bounds.append(np.array([-np.inf] * 7))  # day of the start with dummy
         h_bounds.append(np.array([np.inf] * 7))
+        l_bounds.append(np.array([-np.inf] * 1))  # time_diff
+        h_bounds.append(np.array([np.inf] * 1))
 
         l_bound_total = np.array([])
         for j in l_bounds:
@@ -66,7 +68,7 @@ class Env_config:
 
         # self.action_space = gym.spaces.Tuple((gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,)),
         # gym.spaces.Discrete(24)))
-        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(48,))
+        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(3,)) # Energy, Price # TODO: Add no action. 
 
     def get_gym_spaces(self):
 
