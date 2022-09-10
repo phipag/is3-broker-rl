@@ -9,7 +9,6 @@ from posixpath import split
 import time
 from typing import Optional
 import math
-from black import diff
 from sklearn.ensemble import RandomForestRegressor
 
 import dotenv
@@ -32,6 +31,7 @@ from is3_broker_rl.api.wholesale_dto import (
     StartEpisodeRequest,
     ProsumptionRequest
 )
+from is3_broker_rl.model.wholesale_stats import mean_dict, std_dict
 from is3_broker_rl.conf import setup_logging
 from is3_broker_rl.model.wholesale_policy_server import SERVER_ADDRESS, SERVER_BASE_PORT
 
@@ -63,6 +63,7 @@ class WholesaleController:
         self.last_pred = []
         self.hist_sum_mWh = np.zeros((48))
         self.time_i = 0
+        
         self.episode_i = 0
         self.percentageSubs = np.zeros((20))
         self.prosumptionPerGroup = np.zeros((20))
@@ -73,7 +74,7 @@ class WholesaleController:
         #self._episode: Optional[Episode] = None
         self._episodes = []
         self._log.info("Wholesale init done.")
-        #self.bootstrap_action("wholesale_rewardwithoutpingpong_fixed.csv")
+        #self.bootstrap_action("WR_5000rnd_timesteps.csv")
 
     #def _check_episode_started(self):
     #    if not self._episode:
@@ -121,6 +122,11 @@ class WholesaleController:
 
             # Set the change of customers over 24h
             
+            # temp log_returns for shaping:
+            if self.last_obs.cleared_orders_energy[23] != 0:
+                self._policy_client.log_returns(self._episodes[self.episode_i].episode_id, 0.5, info={"reward" : 0.5, "timeslot": self.last_obs.timeslot, "bootstrap": False,})
+                
+
             self.last_obs.customer_change = request.customer_count - self.cc_change[self.cc_i]
             #self._log.info(f"customer_count {request.customer_count}, {self.cc_change[self.cc_i]}")
             self.cc_change[self.cc_i] = request.customer_count
@@ -146,18 +152,18 @@ class WholesaleController:
                     #self._log.info(f"Episode_id created: {self._episodes[i].episode_id}")
                     # Need to this for the first 2 Episodes to aviod a crash due to a bug in ray 
                     # caused by ending an episode before calling get_action once.
-                    if i < 3:
-
-                        self._policy_client.get_action(self._episodes[i].episode_id, obs.to_feature_vector(i))
-
+                    
             except Exception as e:
                 self._log.error(f"Cant create episode.  {e}", exc_info=True)
 
             action_list = np.zeros([48])
             temp_i = 0
-            
+
             for time_diff in range(24):
-                episode_id = self._episodes[time_diff +2].episode_id # Two floating episodes that are not called. 
+                i2 = self.episode_i + time_diff
+                if i2 >= 24:
+                    i2 = i2-26
+                episode_id = self._episodes[i2+2].episode_id # Two floating episodes that are not called. 
                 #self._log.info(f"Call Episode_id: {episode_id}")
                 temp_action = self._policy_client.get_action(episode_id, obs.to_feature_vector(time_diff))
                 action_list[temp_i] = temp_action[0]
@@ -166,8 +172,10 @@ class WholesaleController:
                     action_list[temp_i] = 0
                     action_list[temp_i+1] = -1
                 temp_i +=2
-            
-            
+            self._log.warn(f"eppisode_i {self.episode_i}, len {len(self._episodes)}")
+            self.episode_i +=1
+            if self.episode_i >= 26:
+                self.episode_i = 0
             # Transform into old action form so I do not break other code.
             #self._log.info(f"Call actionlist: {*action_list}")
             action = np.array([*action_list])
@@ -206,7 +214,8 @@ class WholesaleController:
                         market_position  = self.last_obs.market_position[int((i/2))+1]
                     # Abs here because the action should decide whether to buy or sell.
                     
-                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]  - market_position)) * action[int(i)]
+                    #action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)]  - market_position)) * action[int(i)]
+                    action_scaled[i] = abs((self.last_obs.needed_mWh[int(i/2)])) * action[int(i)]
                     
                     #if self.last_obs.p_customer_prosumption[int(i/2)]  < market_position:
                     #    temp_action = action_scaled[i] * -1
@@ -272,6 +281,9 @@ class WholesaleController:
                 
 
                 shaped_return = abs( reward_market_balance - sum_mWh) / -100
+                # Add a reward for beeing less than 2 mWh off.
+                if shaped_return > -0.02:
+                    shaped_return += 1 
             #shaped_return2 = abs( final_market_balance - (self.last_obs.p_customer_prosumption[0]/1000)) * -1
             
             #final_reward = balancing_reward + wholesale_reward #+ tariff_reward
@@ -286,14 +298,14 @@ class WholesaleController:
                 reward_market_balance = 0
 
             if len(self._episodes) >=26:
-                episode_id = self._episodes.pop(0).episode_id
+                episode_id = self._episodes[self.episode_i].episode_id
                 #self._check_episode_started()
                 #self.train_sum_mWh_diff(self.last_obs, sum_mWh)
                 self._persist_reward(final_reward, balancing_reward, wholesale_reward, tariff_reward, reward_market_balance, sum_mWh)#, final_market_balance)
-                self._policy_client.log_returns(episode_id, final_reward, info={"reward" : final_reward})
+                self._policy_client.log_returns(episode_id, final_reward, info={"reward" : final_reward, "timeslot": self.last_obs.timeslot, "bootstrap": False,})
                 obs = self._standardize_observation(self.last_obs)
                 #self._log.info(f"End Episode_id: {episode_id}")
-                self._policy_client.end_episode(episode_id, obs.to_feature_vector(time_diff=0))
+                #self._policy_client.end_episode(episode_id, obs.to_feature_vector(time_diff=0))
             else:
                 self._log.info("Not enough Episodes to give reward.")
         except Exception as e:
@@ -520,21 +532,21 @@ class WholesaleController:
                 p_wholesale_price=wholesale_price,
                 hour_of_day=obs.hour_of_day,
                 day_of_week=obs.day_of_week,
-                cleared_orders_energy=obs.cleared_orders_energy,
-                cleared_orders_price=obs.cleared_orders_price,
-                cleared_trade_energy=obs.cleared_trade_energy,
-                cleared_trade_price=obs.cleared_trade_price,
-                customer_count=obs.customer_count,
-                customer_change=obs.customer_change,
-                total_prosumption=obs.total_prosumption,
-                market_position=obs.market_position,
-                percentageSubs=obs.percentageSubs,
-                prosumptionPerGroup=obs.prosumptionPerGroup,
-                needed_mWh=obs.needed_mWh,
+                cleared_orders_energy=[((x - mean_dict["cleared_orders_energy"]) / std_dict["cleared_orders_energy"]) for x in obs.cleared_orders_energy],
+                cleared_orders_price=[((x - mean_dict["cleared_orders_price"]) / std_dict["cleared_orders_price"]) for x in obs.cleared_orders_price],
+                cleared_trade_energy=[((x - mean_dict["cleared_trade_energy"]) / std_dict["cleared_trade_energy"]) for x in obs.cleared_trade_energy],
+                cleared_trade_price=[((x - mean_dict["cleared_trade_price"]) / std_dict["cleared_trade_price"]) for x in obs.cleared_trade_price],
+                customer_count=((obs.customer_count - mean_dict["customer_count"]) / std_dict["customer_count"]),
+                customer_change=((obs.customer_change - mean_dict["customer_change"]) / std_dict["customer_change"]),
+                total_prosumption=((obs.total_prosumption - mean_dict["total_prosumption"]) / std_dict["total_prosumption"]),
+                market_position=[((x - mean_dict["market_position"]) / std_dict["market_position"]) for x in obs.market_position],
+                percentageSubs=[((x - mean_dict["percentageSubs"]) / std_dict["percentageSubs"]) for x in obs.percentageSubs],
+                prosumptionPerGroup=[((x - mean_dict["prosumptionPerGroup"]) / std_dict["prosumptionPerGroup"]) for x in obs.prosumptionPerGroup],
+                needed_mWh=[((x - mean_dict["needed_mWh"]) / std_dict["needed_mWh"]) for x in obs.needed_mWh],
             )
             x = scaled_obs.total_prosumption
             
-            #self._log.debug(f"Scaled Obs: {scaled_obs}")
+            #self._log.info(f"Scaled Obs: {scaled_obs}")
         except Exception as e:
             self._log.error(f"Scaling obs error {e}", exc_info=True)
 
@@ -569,6 +581,7 @@ class WholesaleController:
             start = time.time()
             hist_sum_mWh = np.zeros((48))
             bootstrap_i = 0
+            episode_i = 0
             temp_final_market_balance = []
             for index, row in df.iterrows():
                 obs = json.loads(row["observation"])
@@ -623,15 +636,18 @@ class WholesaleController:
                 #    temp_value = hist_sum_mWh[time_i]
                 #    predict_vector2 = np.append(predict_vector,temp_value)
                 #    temp_prosumption[i] = self.rf[i].predict(predict_vector2.reshape(1, -1))# + sum
-                temp_final_market_balance.append(obs.needed_mWh[0])
+                temp_final_market_balance.append(row["shaped_return"])
 
+                
                 # only start getting rewards after 2 rewards are in the list.
                 if len(temp_final_market_balance) >1:
                     reward_market_balance = temp_final_market_balance.pop(0)
 
                 
 
-                    shaped_return = abs( row["shaped_return"] - obs.needed_mWh[0]) / -100
+                    shaped_return = abs( reward_market_balance - row["sum_mWh"]) / -100
+                    if shaped_return > -0.02:
+                        shaped_return +=1
                 
 
                     reward = shaped_return
@@ -656,13 +672,13 @@ class WholesaleController:
                 for i in range(len(self._episodes),26):
                     self._episodes.append(Episode(episode_id=self._policy_client.start_episode(training_enabled=True)))
                     # Avoid closing episodes without action. This would break ray.
-                    if i < 3:
-
-                        self._policy_client.get_action(self._episodes[i].episode_id, obs.to_feature_vector(i))
-
-
+                    
+                
                 for time_diff in range(24):
-                    episode_id = self._episodes[time_diff +2].episode_id # Two floating episodes that are not called. 
+                    i2 = episode_i + time_diff
+                    if i2 >= 24:
+                        i2 = i2-26
+                    episode_id = self._episodes[i2 +2].episode_id # Two floating episodes that are not called. 
                     #self._log.info(f"Here{time_diff}")
                     action_input = np.array([action[time_diff*2], action[(time_diff*2)+1], 1.0])
                     if (action_input[0] == 0) & (action_input[1] == 1):
@@ -673,11 +689,14 @@ class WholesaleController:
                     self._policy_client.log_action(episode_id, observation=obs.to_feature_vector(time_diff), action=action_input)
 
                     #self._policy_client.log_action(self._episode.episode_id, obs.to_feature_vector(), action)
-
-                episode_id = self._episodes.pop(0).episode_id
-                self._policy_client.log_returns(episode_id, reward, info={"reward_from_log" : reward}, done=True)
+                
+                episode_id = self._episodes[episode_i].episode_id
+                episode_i +=1
+                if episode_i >= 26:
+                    episode_i = 0
+                self._policy_client.log_returns(episode_id, reward, info={"reward" : reward, "timeslot": obs.timeslot, "bootstrap": True,})
                 #self._log.info("Here8")
-                self._policy_client.end_episode(episode_id, obs.to_feature_vector(0))
+                #self._policy_client.end_episode(episode_id, obs.to_feature_vector(0))
                 
             elapsed_time_fl = (time.time() - start)
             self._log.info(f"Bootstrap finished. Time {elapsed_time_fl}")
