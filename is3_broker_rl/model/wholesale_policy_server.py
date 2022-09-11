@@ -42,7 +42,7 @@ def start_policy_server():
         env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, N_WORKERS)
         observation_space, action_space = env_config.get_gym_spaces()
         
-        trainer_name = "A3C" # "SAC" or "TD3"
+        trainer_name = "SAC" # "SAC" or "TD3"
         enable_RE3_exploration = False
         config = env_config.get_rl_config(trainer_name)
 
@@ -63,11 +63,11 @@ def start_policy_server():
             verbose=3,
             local_dir=os.environ.get("DATA_DIR", "logs/"),
             log_to_file=True,
-            name=f"{trainer_name}_0709_no_minus",
+            name=f"{trainer_name}_1009_trial4",
             resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
             mode="max",
             max_failures = -1,
-            #restore="logs/TD3_simple_newaction_3/TD3_None_fca89_00000_0_2022-08-14_15-42-50/checkpoint_005000/checkpoint-5000"
+            #restore="logs/SAC_1009_trial4/SAC_None_08269_00000_0_2022-09-11_10-59-24/checkpoint_001000/checkpoint-1000"
             )
     except Exception as e:
         log.error(f"Cant create episode.  {e}", exc_info=True)

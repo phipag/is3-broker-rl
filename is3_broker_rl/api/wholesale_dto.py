@@ -52,11 +52,12 @@ class Observation(BaseModel):
     # remember to change the observation space in the wholsesale_util.py ;)
 
     def to_feature_vector(self, time_diff: int):
-        print("Test")
+        
+        
         if time_diff == 23:
             market_position = 0
         else:
-            market_position = self.market_position[time_diff]
+            market_position = self.market_position[time_diff+1]
 
         if len(self.p_cloud_cover) != 24:
             self.p_cloud_cover = [0]*24

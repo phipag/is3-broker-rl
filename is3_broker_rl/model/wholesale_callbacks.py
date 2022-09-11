@@ -33,8 +33,7 @@ class MyCallbacks(DefaultCallbacks):
         super().__init__(legacy_callbacks_dict)
         logging.basicConfig(level=logging.INFO, filename="stdout")
         #logging.basicConfig(level=logging.info)
-        logging.info("Test3")
-        logging.info("Test")
+
         self.last_reward = 0
 
     @override(DefaultCallbacks)
@@ -51,8 +50,7 @@ class MyCallbacks(DefaultCallbacks):
         try:
             episode.user_data["env_reward"] = []
             episode.hist_data["env_reward"] = []
-            logging.info("Start episode1")
-            logging.info("Test_warn")
+
         except Exception as e:
             logging.info(f"Get Action error: {e}", exc_info=True)
 
@@ -69,10 +67,19 @@ class MyCallbacks(DefaultCallbacks):
         **kwargs
     ):
         try:
-            episode.user_data["env_reward"] = []
-            episode.hist_data["env_reward"] = []
-            logging.info("Start episode2")
-            logging.info("Test_warn2")
+            
+            episode_data = episode.last_info_for()
+            
+            user_data = episode.user_data
+            #logging.info(f"user_data on step: {user_data}, id: {episode.episode_id}, episode_info {episode_data}")
+            agent_rewards = episode.agent_rewards
+            last_obs = episode.last_observation_for()
+            
+            #logging.info(f"Agent rewards on step: {agent_rewards}, env_index: {env_index}, episode_length: {episode.length},last_obs: {last_obs}")
+
+
+            
+
         except Exception as e:
             logging.info(f"Get Action error: {e}", exc_info=True)
 
@@ -80,7 +87,7 @@ class MyCallbacks(DefaultCallbacks):
     def on_episode_end(
         self,
         *,
-        worker: "RolloutWorker",
+        worker: RolloutWorker,
         base_env: BaseEnv,
         policies: Dict[PolicyID, Policy],
         episode: Episode,
@@ -102,31 +109,22 @@ class MyCallbacks(DefaultCallbacks):
             kwargs: Forward compatibility placeholder.
         """
         try:
-            logging.info(f"Episode_end: hist reward: {episode.hist_data['env_reward']}")
+            #logging.info(f"Episode_end: hist reward: {episode.hist_data['env_reward']}")
 
-            logging.info(f"Episode_end: user data reward: {episode.user_data['env_reward']}")
+            #logging.info(f"Episode_end: user data reward: {episode.user_data['env_reward']}")
         
-            logging.info(f"Episode_end: user data reward: {episode}")
+            #logging.info(f"Episode_end: user data reward: {episode}")
+            a=0
             
         except Exception as e:
             logging.info(f"Get Action error: {e}", exc_info=True)
 
     @override(DefaultCallbacks)
-    def on_sample_end(
-        self, *, worker: "RolloutWorker", samples: SampleBatch, **kwargs
-    ) -> None:
-        """Called at the end of RolloutWorker.sample().
-        Args:
-            worker: Reference to the current rollout worker.
-            samples: Batch to be returned. You can mutate this
-                object to modify the samples generated.
-            kwargs: Forward compatibility placeholder.
-        """
+    def on_sample_end(self, *, worker: RolloutWorker, samples: SampleBatch, **kwargs):
         try:
-            a= 1
-            logging.info("on_sample_end: ")
+            logging.info("returned sample batch of size {}".format(samples.count))
         except Exception as e:
-            logging.info(f"Get Action error: {e}", exc_info=True)
+            logging.info(f"On_sample_end error: {e}", exc_info=True)
 
     @override(DefaultCallbacks)
     def on_postprocess_trajectory(
@@ -146,17 +144,37 @@ class MyCallbacks(DefaultCallbacks):
             #logging.info(f"episode {episode}")
             #logging.info("postprocessed {} ".format())
             # Do this on_episode_start to initialize the list.
-            logging.info(f"on_postprocess_trajectory: last_reward reward: {self.last_reward}")
+            logging.info(f"post_processed_next_obs {postprocessed_batch}")
+            logging.info(f" pp_b reward shape: {len(postprocessed_batch['rewards'])}")
+            logging.info(f"post_processed_next_obs {np.shape(postprocessed_batch['new_obs'])}")
+            #logging.info(f"on_postprocess_trajectory: last_reward reward: {self.last_reward}")
         #
             #logging.info(f"on_postprocess_trajectory: user data reward: {episode.user_data['env_reward']}")
         #
-            logging.info(f"on_postprocess_trajectory: user data reward: {episode}")
+            logging.info(f"on_postprocess_trajectory: user data reward: {episode.last_info_for()}")
             #
             logging.info(f"on_postprocess_trajectory: user data reward: {episode.last_action_for()}")
 
-            # set the reward to the reward for the whole batch. 
+            info_dict = episode.last_info_for()
             reward = postprocessed_batch["rewards"]
             new_reward = np.ones((len(reward))) *-1
+            
+            # This means if sum_mWh is smaller than reward_market_balance and the diff is over 100.
+            #if info_dict["balancing_reward"] < -0.01: 
+            #    i = 0
+            #    
+            #    #for action in postprocessed_batch["action"]:
+#
+            #    #    if info_dict[""]
+            #    #    #logging.info(f"obs {obs}")
+            #    #    new_reward[i] = -2
+            #    #    i+=1
+#
+            #else:
+
+                # set the reward to the reward for the whole batch. 
+                
+                
             if len(reward) <= 100:
                 if reward[len(reward)-1] != 0.0:
                     
@@ -170,7 +188,7 @@ class MyCallbacks(DefaultCallbacks):
                     
                     episode.hist_data["env_reward"].append(reward[len(reward)-1])
                 else:
-                    logging.info(postprocessed_batch["rewards"])
+                    
                     postprocessed_batch["rewards"] = new_reward
             else:
                 logging.info(f"len of reward not 24 instead: {len(reward)}")
@@ -211,7 +229,7 @@ class MyCallbacks(DefaultCallbacks):
                 #train_batch["rewards"]
                 logging.info(
                     "policy.learn_on_batch() result: {} ->  rewards: {}".format(
-                        policy, train_batch["rewards"]
+                        policy, train_batch.max_seq_len
                     )
                 )
                 #logging.info(
@@ -228,4 +246,17 @@ class MyCallbacks(DefaultCallbacks):
                     
                     
             except Exception as e:
+                logging.info(f"Callback error: {e}", exc_info=True)
+
+    @override(DefaultCallbacks)
+    def on_train_result(self, *, result: dict, **kwargs):
+        try:
+            logging.info(
+                "Algorithm.train() result: -> {} episodes".format(
+                    result["episodes_this_iter"]
+                )
+            )
+            # you can mutate the result dict to add new fields to return
+            result["callback_ok"] = True
+        except Exception as e:
                 logging.info(f"Callback error: {e}", exc_info=True)

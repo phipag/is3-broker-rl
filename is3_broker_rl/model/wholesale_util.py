@@ -151,13 +151,13 @@ class Env_config:
             #   -> will make sure that replay+train op will be executed 4x as
             #      often as rollout+insert op (4 * 250 = 1000).
             # See: rllib/agents/dqn/dqn.py::calculate_rr_weights for further details.
-            "training_intensity": 100,
+            "training_intensity": 500,
             # Update the replay buffer with this many samples at once. Note that this
             # setting applies per-worker if num_workers > 1.
             
             "rollout_fragment_length": 24,
             # Size of a batched sampled from replay buffer for training.
-            "train_batch_size": 24,
+            "train_batch_size": 24*12,
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
             "store_buffer_in_checkpoints": True,
@@ -177,12 +177,12 @@ class Env_config:
             config["framework"] = "tf2"
             config["twin_q"] = True
             config["optimization"] = {
-                "actor_learning_rate": 3e-5,
+                "actor_learning_rate": 3e-4,
                 "critic_learning_rate": 3e-4,
-                "entropy_learning_rate": 3e-5,
+                "entropy_learning_rate": 3e-4,
             }
             config["Q_model"] = {
-                "fcnet_hiddens": [256, 256, 256, 256],
+                "fcnet_hiddens": [256, 256],
                 "fcnet_activation": "relu",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
@@ -190,7 +190,7 @@ class Env_config:
                 "custom_model_config": {},
             }
             config["policy_model"] = {
-                "fcnet_hiddens": [256, 256, 256, 256],
+                "fcnet_hiddens": [256, 256],
                 "fcnet_activation": "relu",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
@@ -199,10 +199,10 @@ class Env_config:
             }
             config["replay_buffer_config"] = {
                 "_enable_replay_buffer_api": True,
-                "type": "MultiAgentReplayBuffer",
+                "type": "MultiAgentPrioritizedReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 100, # * 24 because we take 24 actions per timeslot
+                "learning_starts": 24, # * 24 because we take 24 actions per timeslot
                 "storage_unit": "timesteps",
             
             
@@ -214,8 +214,8 @@ class Env_config:
                 # Whether to LZ4 compress observations
                 "compress_observations": True,
             }
-            config["tau"] = 5e-4
-            config["initial_alpha"] = 0.8
+            config["tau"] = 1e-3
+            config["initial_alpha"] = 0.25
             config["target_entropy"] = "auto"
 
 
@@ -310,12 +310,13 @@ class Env_config:
                 "observation_space": self.observation_space,
                 "action_space": self.action_space,
                 "input": _input,
-                #"frame_work": "tf2",
+                "framework": "tf2",
                 "num_workers": 1,
+                "input_evaluation": [],
                 #"learning_starts": 5000 * 24, # * 24 because we take 24 actions per timeslot
                 # Prevents learning on batches that do not have the right reward set.
                 "batch_mode": "complete_episodes",
-                
+                "rollout_fragment_length": 24,
                 # Use a e.g. conv2D state preprocessing network before concatenating the
                 # resulting (feature) vector with the action input for the input to
                 # the Q-networks.
@@ -362,7 +363,72 @@ class Env_config:
 
 
             })
+
+        if trainer_name == "PPO":
+
+            config = with_common_config({
+                "env": None,
+                "observation_space": self.observation_space,
+                "action_space": self.action_space,
+                "input": _input,
+                "framework": "tf2",
+                "num_workers": 1,
+                "input_evaluation": [],
+                #"learning_starts": 5000 * 24, # * 24 because we take 24 actions per timeslot
+                # Prevents learning on batches that do not have the right reward set.
+                "batch_mode": "complete_episodes",
+                "rollout_fragment_length": 24,
+                "sgd_minibatch_size": 24,
+                "num_sgd_iter" : 30,
+                # Use a e.g. conv2D state preprocessing network before concatenating the
+                # resulting (feature) vector with the action input for the input to
+                # the Q-networks.
+                # "use_state_preprocessor": DEPRECATED_VALUE,
+                #"observation_filter": "MeanStdFilter",
+                "log_level": "INFO",
+                "callbacks": MyCallbacks,
+                "shuffle_sequences": True,
+                "lr": 1e-5,
+                "model": {
+                    "use_lstm": True,
+                    "lstm_cell_size": 256,
+                    "lstm_use_prev_action_reward": True,
+                    #"lstm_use_prev_reward": False,
+                },
+                
+                
+                
+                "train_batch_size": 24,
+                #"lstm_use_prev_action_reward": -1,
+                #"batch_size": 24,
+            })
+            # TODO: Register custom model.
+            custom_model = wholesale_custom_model.MyModelClass(
+                obs_space=self.observation_space,
+                action_space=self.action_space,
+                seq_len=24,
+                model_config={
+                },
+            )
+            #t_config = TrainerConfig().training().environment(observation_space=self.observation_space, action_space=self.action_space).input_config().callbacks(MyCallbacks)
+            #config = t_config.to_dict()
             
+            #ModelCatalog.register_custom_model(
+            #    "custom_model",
+            #    wholesale_custom_model.MyModelClass
+            #)
+#
+            config.update({
+                #"sample_async" : False,
+                #"model": "custom_model",
+                #"microbatch_size" : None,
+                #"learning_starts": None,
+                
+                "train_batch_size": 24,
+
+
+            })
+
         # See https://github.com/ray-project/ray/blob/c9c3f0745a9291a4de0872bdfa69e4ffdfac3657/rllib/utils/exploration/tests/test_random_encoder.py#L35=
         
         #config = with_common_config(config)
