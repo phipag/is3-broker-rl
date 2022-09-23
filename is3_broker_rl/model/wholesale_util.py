@@ -214,7 +214,7 @@ class Env_config:
                 "type": "MultiAgentPrioritizedReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 1500, # * 24 because we take 24 actions per timeslot
+                "learning_starts": 1500 * 24, # * 24 because we take 24 actions per timeslot
                 "storage_unit": "timesteps",
             
             
