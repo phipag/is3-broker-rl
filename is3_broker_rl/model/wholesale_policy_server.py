@@ -36,9 +36,10 @@ N_WORKERS = 0
 
 
 def start_policy_server():
+    log = logging.getLogger(__name__)
+    log.info("start_policy_server")
     try:
-        log = logging.getLogger(__name__)
-        log.info("start_policy_server")
+        
         env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, N_WORKERS)
         observation_space, action_space = env_config.get_gym_spaces()
         
@@ -63,11 +64,11 @@ def start_policy_server():
             verbose=3,
             local_dir=os.environ.get("DATA_DIR", "logs/"),
             log_to_file=True,
-            name=f"{trainer_name}_1009_trial4",
-            resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
+            name=f"{trainer_name}_17_09_new_reward",
+            #resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
             mode="max",
             max_failures = -1,
-            #restore="logs/SAC_1009_trial4/SAC_None_08269_00000_0_2022-09-11_10-59-24/checkpoint_001000/checkpoint-1000"
+            restore="logs/SAC_17_09_new_reward/SAC_None_9dd99_00000_0_2022-09-17_15-49-58/checkpoint_011000/checkpoint-11000"
             )
     except Exception as e:
         log.error(f"Cant create episode.  {e}", exc_info=True)

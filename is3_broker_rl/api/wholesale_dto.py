@@ -38,8 +38,8 @@ class Observation(BaseModel):
     cleared_orders_energy: List[float] = []
     cleared_trade_price: List[float] = []
     cleared_trade_energy: List[float] = []
-    customer_count: int
-    customer_change: int
+    customer_count: float
+    customer_change: float
     total_prosumption: float
     market_position: List[float] = []
     percentageSubs: List[float] = []
@@ -47,7 +47,7 @@ class Observation(BaseModel):
     needed_mWh: List[float] = []
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
-
+    action_history: List[List[float]] = [[]]
 
     # remember to change the observation space in the wholsesale_util.py ;)
 
@@ -69,21 +69,24 @@ class Observation(BaseModel):
             self.p_wind_speed = [0]*24
             print(f"not long enough: {self.p_wind_speed}")
 
+        time_diff_list = [0]*24
+        time_diff_list[time_diff] = 1
+
 
         return np.concatenate(
             (
                 np.array([self.p_grid_imbalance[time_diff]]),
                 np.array([self.p_customer_prosumption[time_diff]]),
                 np.array([self.p_wholesale_price[time_diff]]),
-                np.array([self.p_cloud_cover[time_diff]]),
-                np.array([self.p_temperature[time_diff]]),
-                np.array([self.p_wind_speed[time_diff]]),
+                #np.array([self.p_cloud_cover[time_diff]]),
+                #np.array([self.p_temperature[time_diff]]),
+                #np.array([self.p_wind_speed[time_diff]]),
                 np.array([self.cleared_orders_price[time_diff]]),
                 np.array([self.cleared_orders_energy[time_diff]]),
                 np.array([self.cleared_trade_price[time_diff]]),
                 np.array([self.cleared_trade_energy[time_diff]]),
                 #np.array([self.customer_count]),#
-                np.array([self.customer_change]),
+                #np.array([self.customer_change]),
                 np.array([self.total_prosumption]),
                 np.array([market_position]),
                 np.array(self.percentageSubs),
@@ -91,7 +94,9 @@ class Observation(BaseModel):
                 np.array([self.needed_mWh[time_diff]]),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
-                np.array([time_diff]),
+                np.array([self.timeslot]),
+                np.array(time_diff_list),
+                np.array(np.ravel(self.action_history[time_diff])),
             )
         )
     # For prediciton only:
