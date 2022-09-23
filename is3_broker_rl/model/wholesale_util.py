@@ -46,8 +46,8 @@ class Env_config:
         h_bounds.append(np.array([np.inf] * 1))
         #l_bounds.append(np.array([-np.inf] * 1))  # customer_count
         #h_bounds.append(np.array([np.inf] * 1))
-        l_bounds.append(np.array([-np.inf] * 1))  # customer_change
-        h_bounds.append(np.array([np.inf] * 1))
+        #l_bounds.append(np.array([-np.inf] * 1))  # customer_change
+        #h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 1))  # total_prosumption
         h_bounds.append(np.array([np.inf] * 1))
         l_bounds.append(np.array([-np.inf] * 1))  # market_position = 0
@@ -62,7 +62,19 @@ class Env_config:
         h_bounds.append(np.array([np.inf] * 24))
         l_bounds.append(np.array([-np.inf] * 7))  # day of the start with dummy
         h_bounds.append(np.array([np.inf] * 7))
-        l_bounds.append(np.array([-np.inf] * 1))  # time_diff
+        l_bounds.append(np.array([-np.inf] * 1))  # timeslot
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 24))  # time_diff
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 24))  # action_hist
+        h_bounds.append(np.array([np.inf] * 24))
+        l_bounds.append(np.array([-np.inf] * 1))  # unclearedOrdersMWhAsks
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # unclearedOrdersMWhBids
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # weigthedAvgPriceAsks
+        h_bounds.append(np.array([np.inf] * 1))
+        l_bounds.append(np.array([-np.inf] * 1))  # weigthedAvgPriceBids
         h_bounds.append(np.array([np.inf] * 1))
 
         l_bound_total = np.array([])
@@ -182,16 +194,16 @@ class Env_config:
                 "entropy_learning_rate": 3e-4,
             }
             config["Q_model"] = {
-                "fcnet_hiddens": [256, 256],
-                "fcnet_activation": "relu",
+                "fcnet_hiddens": [1024, 1024],
+                "fcnet_activation": "tanh",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
                 "custom_model": None,  # Use this to define custom Q-model(s).
                 "custom_model_config": {},
             }
             config["policy_model"] = {
-                "fcnet_hiddens": [256, 256],
-                "fcnet_activation": "relu",
+                "fcnet_hiddens": [1024, 1024],
+                "fcnet_activation": "tanh",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
                 "custom_model": None,  # Use this to define a custom policy model.
@@ -202,7 +214,7 @@ class Env_config:
                 "type": "MultiAgentPrioritizedReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 24, # * 24 because we take 24 actions per timeslot
+                "learning_starts": 1500 * 24, # * 24 because we take 24 actions per timeslot
                 "storage_unit": "timesteps",
             
             
@@ -215,7 +227,7 @@ class Env_config:
                 "compress_observations": True,
             }
             config["tau"] = 1e-3
-            config["initial_alpha"] = 0.25
+            config["initial_alpha"] = 0.5
             config["target_entropy"] = "auto"
 
 

@@ -38,8 +38,8 @@ class Observation(BaseModel):
     cleared_orders_energy: List[float] = []
     cleared_trade_price: List[float] = []
     cleared_trade_energy: List[float] = []
-    customer_count: int
-    customer_change: int
+    customer_count: float
+    customer_change: float
     total_prosumption: float
     market_position: List[float] = []
     percentageSubs: List[float] = []
@@ -47,7 +47,11 @@ class Observation(BaseModel):
     needed_mWh: List[float] = []
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
-
+    action_history: List[List[float]] = [[]]
+    unclearedOrdersMWhAsks: List[float] = []
+    unclearedOrdersMWhBids: List[float] = []
+    weigthedAvgPriceAsks: List[float] = []
+    weigthedAvgPriceBids: List[float] = []
 
     # remember to change the observation space in the wholsesale_util.py ;)
 
@@ -56,8 +60,16 @@ class Observation(BaseModel):
         
         if time_diff == 23:
             market_position = 0
+            unclearedOrdersMWhAsks = 0
+            unclearedOrdersMWhBids = 0
+            weigthedAvgPriceAsks = 0
+            weigthedAvgPriceBids = 0
         else:
             market_position = self.market_position[time_diff+1]
+            unclearedOrdersMWhAsks = self.unclearedOrdersMWhAsks[time_diff+1]
+            unclearedOrdersMWhBids = self.unclearedOrdersMWhBids[time_diff+1]
+            weigthedAvgPriceAsks = self.weigthedAvgPriceAsks[time_diff+1]
+            weigthedAvgPriceBids = self.weigthedAvgPriceBids[time_diff+1]
 
         if len(self.p_cloud_cover) != 24:
             self.p_cloud_cover = [0]*24
@@ -68,6 +80,9 @@ class Observation(BaseModel):
         if len(self.p_wind_speed) != 24:
             self.p_wind_speed = [0]*24
             print(f"not long enough: {self.p_wind_speed}")
+
+        time_diff_list = [0]*24
+        time_diff_list[time_diff] = 1
 
 
         return np.concatenate(
@@ -83,7 +98,7 @@ class Observation(BaseModel):
                 np.array([self.cleared_trade_price[time_diff]]),
                 np.array([self.cleared_trade_energy[time_diff]]),
                 #np.array([self.customer_count]),#
-                np.array([self.customer_change]),
+                #np.array([self.customer_change]),
                 np.array([self.total_prosumption]),
                 np.array([market_position]),
                 np.array(self.percentageSubs),
@@ -91,7 +106,14 @@ class Observation(BaseModel):
                 np.array([self.needed_mWh[time_diff]]),
                 np.array(self.hour_of_day),
                 np.array(self.day_of_week),
-                np.array([time_diff]),
+                np.array([self.timeslot]),
+                np.array(time_diff_list),
+                np.array(np.ravel(self.action_history[time_diff])),
+                np.array([unclearedOrdersMWhAsks]),
+                np.array([unclearedOrdersMWhBids]),
+                np.array([weigthedAvgPriceAsks]),
+                np.array([weigthedAvgPriceBids]),
+
             )
         )
     # For prediciton only:
@@ -165,6 +187,10 @@ class GetActionRequest(BaseModel):
     total_prosumption: str
     market_position: str
     needed_mWh: str
+    unclearedOrdersMWhAsks: str
+    unclearedOrdersMWhBids: str
+    weigthedAvgPriceAsks: str
+    weigthedAvgPriceBids: str
 
 
 class ProsumptionRequest(BaseModel):
