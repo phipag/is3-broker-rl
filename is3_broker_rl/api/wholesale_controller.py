@@ -34,6 +34,7 @@ from is3_broker_rl.api.wholesale_dto import (
 from is3_broker_rl.model.wholesale_stats import mean_dict, std_dict
 from is3_broker_rl.conf import setup_logging
 from is3_broker_rl.model.wholesale_policy_server import SERVER_ADDRESS, SERVER_BASE_PORT
+from is3_broker_rl.model.wholesale_util import Env_config
 
 
 @serve.deployment(route_prefix="/wholesale")
@@ -64,7 +65,8 @@ class WholesaleController:
         self.last_pred = []
         self.hist_sum_mWh = np.zeros((48))
         self.time_i = 0
-        
+        self.env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, 0)
+        self.observation_space, self.action_space = self.env_config.get_gym_spaces()
         self.episode_i = 0
         self.percentageSubs = np.zeros((20))
         self.prosumptionPerGroup = np.zeros((20))
@@ -77,6 +79,7 @@ class WholesaleController:
         #self._episode: Optional[Episode] = None
         self._episodes = []
         self._log.info("Wholesale init done.")
+
         #self.bootstrap_action("WR_10.09_60k_trained_with_a3c.csv")
 
     #def _check_episode_started(self):
@@ -123,6 +126,10 @@ class WholesaleController:
             self.last_obs.market_position = self.string_to_list(request.market_position)
             self.last_obs.needed_mWh = self.string_to_list(request.needed_mWh)
             self.last_obs.action_history = self.action_saved
+            self.last_obs.unclearedOrdersMWhAsks = self.string_to_list(request.unclearedOrdersMWhAsks)
+            self.last_obs.unclearedOrdersMWhBids = self.string_to_list(request.unclearedOrdersMWhBids)
+            self.last_obs.weigthedAvgPriceAsks = self.string_to_list(request.weigthedAvgPriceAsks)
+            self.last_obs.weigthedAvgPriceBids = self.string_to_list(request.weigthedAvgPriceBids)
             # Set the change of customers over 24h
 
             #Filling the values for log_return.
@@ -140,7 +147,6 @@ class WholesaleController:
                     # The oldest action is set to [0]*24 again and appended at the back.
                     self.info_market_balance[time_diff+3][time_diff] = 0
                     
-            self._log.info("Here1")
             # pop result that we use in log_returns.
             self.result_info_cleared_order_energy = self.info_cleared_order_energy.pop(0)
             self.info_cleared_order_energy.append([0]*24)
@@ -171,7 +177,8 @@ class WholesaleController:
             #self._log.info(f"obs after {self.last_obs}")
             obs = self._standardize_observation(self.last_obs)
             # Check if obs is complete.
-            if len(obs.to_feature_vector(0)) != 130:
+            
+            if len(obs.to_feature_vector(0)) != self.observation_space.shape[0]:
                 self._log.info(f"obs has wrong length {len(obs.to_feature_vector(0))}")
                 self.finished_observation = False
                 return "NaN"
@@ -603,6 +610,11 @@ class WholesaleController:
                 prosumptionPerGroup=[((x - mean_dict["prosumptionPerGroup"]) / std_dict["prosumptionPerGroup"]) for x in obs.prosumptionPerGroup],
                 needed_mWh=[((x - mean_dict["needed_mWh"]) / std_dict["needed_mWh"]) for x in obs.needed_mWh],
                 action_history=obs.action_history,
+                unclearedOrdersMWhAsks = [((x - mean_dict["unclearedOrdersMWhAsks"]) / std_dict["unclearedOrdersMWhAsks"]) for x in obs.unclearedOrdersMWhAsks],
+                unclearedOrdersMWhBids = [((x - mean_dict["unclearedOrdersMWhBids"]) / std_dict["unclearedOrdersMWhBids"]) for x in obs.unclearedOrdersMWhBids],
+                weigthedAvgPriceAsks = [((x - mean_dict["weigthedAvgPriceAsks"]) / std_dict["weigthedAvgPriceAsks"]) for x in obs.weigthedAvgPriceAsks],
+                weigthedAvgPriceBids = [((x - mean_dict["weigthedAvgPriceBids"]) / std_dict["weigthedAvgPriceBids"]) for x in obs.weigthedAvgPriceBids],
+
             )
             x = scaled_obs.total_prosumption
             

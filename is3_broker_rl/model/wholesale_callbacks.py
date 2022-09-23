@@ -177,12 +177,19 @@ class MyCallbacks(DefaultCallbacks):
                 for time_i in range(len(postprocessed_batch)):
                     # actions are sorted the other way around from our logic.
                     action_i = len(postprocessed_batch) - time_i - 1
-                    logging.info(f"Actions in post_batch: {actions[23-time_i]}")
-                    # Is actions reversed? Oldest actions on which side?
+                    logging.info(f"Actions in post_batch: {actions[action_i]}")
+
                     # check all actions where the market_balance is less than the needed value and the 
                     # total imbalance is negative. Thus the action we select is contributing to this imbalance.
-                    logging.info(f"market_balance: {info_dict['market_balance'][time_i]},sum_mWh {info_dict['sum_mWh']},imbalance bool: {imbalance_bought_too_much}")
-                    if ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
+                    logging.info(f"market_balance: {info_dict['market_balance'][time_i]}, sum_mWh {info_dict['sum_mWh']},imbalance bool: {imbalance_bought_too_much}")
+                    # Add reward for taking the first action in the right direction. 
+                    # This should help because the most energy is traded at the first timeslot.
+                    if (time_i == 0) & (actions[24][2] > 0 ) (actions[24][0] > 0 ) & (info_dict["sum_mWh"] > 0):
+                        new_reward[action_i] = info_dict["reward"] + 0.5
+                    elif (time_i == 0) & (actions[24][2] > 0 ) (actions[24][0] < 0 ) & (info_dict["sum_mWh"] < 0):
+                        new_reward[action_i] = info_dict["reward"] + 0.5    
+
+                    elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
                             & (actions[action_i][0] < 0) & (actions[action_i][2]>0)
                             ):
 

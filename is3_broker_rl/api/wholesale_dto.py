@@ -48,6 +48,10 @@ class Observation(BaseModel):
     hour_of_day: List[float] = []
     day_of_week: List[float] = []
     action_history: List[List[float]] = [[]]
+    unclearedOrdersMWhAsks: List[float] = []
+    unclearedOrdersMWhBids: List[float] = []
+    weigthedAvgPriceAsks: List[float] = []
+    weigthedAvgPriceBids: List[float] = []
 
     # remember to change the observation space in the wholsesale_util.py ;)
 
@@ -56,8 +60,16 @@ class Observation(BaseModel):
         
         if time_diff == 23:
             market_position = 0
+            unclearedOrdersMWhAsks = 0
+            unclearedOrdersMWhBids = 0
+            weigthedAvgPriceAsks = 0
+            weigthedAvgPriceBids = 0
         else:
             market_position = self.market_position[time_diff+1]
+            unclearedOrdersMWhAsks = self.unclearedOrdersMWhAsks[time_diff+1]
+            unclearedOrdersMWhBids = self.unclearedOrdersMWhBids[time_diff+1]
+            weigthedAvgPriceAsks = self.weigthedAvgPriceAsks[time_diff+1]
+            weigthedAvgPriceBids = self.weigthedAvgPriceBids[time_diff+1]
 
         if len(self.p_cloud_cover) != 24:
             self.p_cloud_cover = [0]*24
@@ -78,9 +90,9 @@ class Observation(BaseModel):
                 np.array([self.p_grid_imbalance[time_diff]]),
                 np.array([self.p_customer_prosumption[time_diff]]),
                 np.array([self.p_wholesale_price[time_diff]]),
-                #np.array([self.p_cloud_cover[time_diff]]),
-                #np.array([self.p_temperature[time_diff]]),
-                #np.array([self.p_wind_speed[time_diff]]),
+                np.array([self.p_cloud_cover[time_diff]]),
+                np.array([self.p_temperature[time_diff]]),
+                np.array([self.p_wind_speed[time_diff]]),
                 np.array([self.cleared_orders_price[time_diff]]),
                 np.array([self.cleared_orders_energy[time_diff]]),
                 np.array([self.cleared_trade_price[time_diff]]),
@@ -97,6 +109,11 @@ class Observation(BaseModel):
                 np.array([self.timeslot]),
                 np.array(time_diff_list),
                 np.array(np.ravel(self.action_history[time_diff])),
+                np.array([unclearedOrdersMWhAsks]),
+                np.array([unclearedOrdersMWhBids]),
+                np.array([weigthedAvgPriceAsks]),
+                np.array([weigthedAvgPriceBids]),
+
             )
         )
     # For prediciton only:
@@ -170,6 +187,10 @@ class GetActionRequest(BaseModel):
     total_prosumption: str
     market_position: str
     needed_mWh: str
+    unclearedOrdersMWhAsks: str
+    unclearedOrdersMWhBids: str
+    weigthedAvgPriceAsks: str
+    weigthedAvgPriceBids: str
 
 
 class ProsumptionRequest(BaseModel):

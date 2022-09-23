@@ -54,6 +54,10 @@ mean_dict= {
 'prosumptionPerGroup_18': -31.085194083533814,
 'prosumptionPerGroup_19': -34.415888059763326,
 'needed_mWh': 7.232668296907553,
+'unclearedOrdersMWhAsks': 767.8394054482841,
+'unclearedOrdersMWhBids': 767.8394054482841,
+'weigthedAvgPriceAsks': 767.8394054482841,
+'weigthedAvgPriceBids': 767.8394054482841,
 }
 
 
@@ -113,4 +117,8 @@ std_dict= {
 'prosumptionPerGroup_18': 72.07510044088988,
 'prosumptionPerGroup_19': 55.14170747330212,
 'needed_mWh': 11.545550347843733,
+'unclearedOrdersMWhAsks': 108.38983684496425,
+'unclearedOrdersMWhBids': 108.38983684496425,
+'weigthedAvgPriceAsks': 767.8394054482841,
+'weigthedAvgPriceBids': 767.8394054482841,
 }
