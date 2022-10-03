@@ -15,10 +15,11 @@ from ray.rllib.agents.trainer_config import TrainerConfig
 
 
 class Env_config:
-    def __init__(self, server_address, server_base_port, num_workers) -> None:
+    def __init__(self, server_address, server_base_port, num_workers, discrete_action = True) -> None:
         self.server_address = server_address
         self.server_base_port = server_base_port
         self.num_workers = num_workers
+        self.discrete_action = discrete_action
         l_bounds = []
         h_bounds = []
         
@@ -91,13 +92,27 @@ class Env_config:
             # shape=observation_space_bounds[:, 0].shape,
         )
 
-        # self.action_space = gym.spaces.Tuple((gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,)),
-        # gym.spaces.Discrete(24)))
-        self.action_space = gym.spaces.Box(low=-1, high=1, shape=(3,)) # Energy, Price # TODO: Add no action. 
+        self.energy_alpha = [-1, -0.75, -0.5, -0.25, -0.1, 0.1, 0.25, 0.5, 0.75, 1]
+        self.price_beta = [0.5, 1, 2]
+        if discrete_action == True:
+            # Alpha, beta is in the paper. 
+            
+            number_actions = len(self.energy_alpha) * len(self.price_beta) +1 # +1 for no action
+            self.action_space = gym.spaces.Discrete(n=number_actions) # Energy, Price 
 
+        else:
+            self.action_space = gym.spaces.Box(low=-1, high=1, shape=(3,)) # Energy, Price 
+
+        
     def get_gym_spaces(self):
 
         return self.observation_space, self.action_space
+
+    def get_descrete_action_bool(self):
+        return self.discrete_action
+
+    def get_action_size(self):
+        return (len(self.price_beta) * len(self.energy_alpha)) +1
 
     
 

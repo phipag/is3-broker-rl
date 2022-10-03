@@ -19,7 +19,6 @@ from ray import serve
 from ray.rllib.env import PolicyClient
 import requests
 from starlette.requests import Request
-from tqdm import tqdm
 
 from is3_broker_rl.api.fastapi_app import fastapi_app
 from is3_broker_rl.api.wholesale_dto import (
@@ -65,7 +64,7 @@ class WholesaleController:
         self.last_pred = []
         self.hist_sum_mWh = np.zeros((48))
         self.time_i = 0
-        self.env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, 0)
+        self.env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, 0, True)
         self.observation_space, self.action_space = self.env_config.get_gym_spaces()
         self.episode_i = 0
         self.percentageSubs = np.zeros((20))
@@ -204,13 +203,32 @@ class WholesaleController:
                 if i2 >= 24:
                     i2 = i2-26
                 episode_id = self._episodes[i2+2].episode_id # Two floating episodes that are not called. 
-                #self._log.info(f"Call Episode_id: {episode_id}")
-                temp_action = self._policy_client.get_action(episode_id, obs.to_feature_vector(time_diff))
-                action_list[temp_i] = temp_action[0]
-                action_list[temp_i+1] = temp_action[1]
-                if temp_action[2] < 0:
-                    action_list[temp_i] = 0
-                    action_list[temp_i+1] = -1
+
+                if self.env_config.get_descrete_action_bool() == True:
+                    temp_action = self._policy_client.get_action(episode_id, obs.to_feature_vector(time_diff))
+                    energy_alpha = self.env_config.energy_alpha
+                    price_beta = self.env_config.price_beta
+                    #self._log.info(f"temp_action: {temp_action}")
+                    if temp_action == self.env_config.get_action_size() -1:
+                        action_list[temp_i] = 0
+                        action_list[temp_i+1] = 0
+
+                    else:
+                        action_list[temp_i] = energy_alpha[int(temp_action % len(energy_alpha))]
+                        action_list[temp_i+1] = price_beta[int(temp_action / len(energy_alpha))]
+
+
+
+
+
+                else:
+                    #self._log.info(f"Call Episode_id: {episode_id}")
+                    temp_action = self._policy_client.get_action(episode_id, obs.to_feature_vector(time_diff))
+                    action_list[temp_i] = temp_action[0]
+                    action_list[temp_i+1] = temp_action[1]
+                    if temp_action[2] < 0:
+                        action_list[temp_i] = 0
+                        action_list[temp_i+1] = -1
                 temp_i +=2
 
 
@@ -961,7 +979,7 @@ class WholesaleController:
             temp_merge_df["sum_mWh"] = df["sum_mWh"].astype(float)
             #self._log.info(temp_merge_df[f"p_customer_prosumption_{0}"])
             self.rf = []
-            for diff_i in tqdm(range(0,24)):
+            for diff_i in range(0,24):
                 #temp_merge_df["sum_diff"] = temp_merge_df[f"p_customer_prosumption_{diff_i}"]/1000 - temp_merge_df["sum_mWh"]
                 temp_merge_df["sum_diff"] = temp_merge_df["sum_mWh"]
                 

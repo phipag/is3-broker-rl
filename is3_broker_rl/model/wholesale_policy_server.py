@@ -40,7 +40,7 @@ def start_policy_server():
     log.info("start_policy_server")
     try:
         
-        env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, N_WORKERS)
+        env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, N_WORKERS, True)
         observation_space, action_space = env_config.get_gym_spaces()
         
         trainer_name = "SAC" # "SAC" or "TD3"
@@ -64,7 +64,7 @@ def start_policy_server():
             verbose=3,
             local_dir=os.environ.get("DATA_DIR", "logs/"),
             log_to_file=True,
-            name=f"{trainer_name}_23_09_orderbooks",
+            name=f"{trainer_name}_28_09_discrete_1",
             resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
             mode="max",
             max_failures = -1,

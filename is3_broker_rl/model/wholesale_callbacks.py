@@ -159,6 +159,36 @@ class MyCallbacks(DefaultCallbacks):
             info_dict = episode.last_info_for()
             reward = postprocessed_batch["rewards"]
             new_reward = np.zeros((len(reward))) *-1
+
+            actions = postprocessed_batch['actions']
+            #logging.info(f"Shape: {np.shape(actions)}")
+            #temp_actions = actions
+            temp_actions = np.zeros((48))
+            if np.shape(actions) ==(24,):
+                energy_alpha = [-1, -0.75, -0.5, -0.25,-0.1, 0.1, 0.25, 0.5, 0.75, 1]
+                price_beta = [0.5, 1, 2]
+                
+                temp_i = 0
+                for act in actions:  
+                    #logging.info(f"Action: {act}, {len(actions)}" )
+                    if act == (len(energy_alpha) * len(price_beta)):
+                        temp_actions[temp_i] = 0
+                        temp_actions[temp_i+24] = 0
+                    else:
+                        temp_actions[temp_i] = energy_alpha[int(act % len(energy_alpha))]
+                        # 
+                        #if temp_actions[temp_i] > 0:
+                        #    sign = -1
+                        #else:
+                        #    sign = 1
+                        temp_actions[temp_i+24] = price_beta[int(act / len(energy_alpha))]# * sign
+                    temp_i += 1
+
+                temp_actions = temp_actions.reshape((-1,24)).tolist()
+                #logging.info(f"temp_actions: {np.shape(temp_actions)}")
+                temp_actions = np.column_stack((np.array(temp_actions[0]),np.array(temp_actions[1]), np.array([ -1 if value ==0 else 1  for value in temp_actions[0]])))
+                #temp_action = temp_actions.tolist()
+                #logging.info(f"temp_actions: {temp_actions}")
             
             #new_reward = np.ones((len(postprocessed_batch))) *-1
             # At first only filter really bad rewards.
