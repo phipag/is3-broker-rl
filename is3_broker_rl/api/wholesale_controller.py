@@ -64,7 +64,7 @@ class WholesaleController:
         self.last_pred = []
         self.hist_sum_mWh = np.zeros((48))
         self.time_i = 0
-        self.env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, 0, True)
+        self.env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, 0, False)
         self.observation_space, self.action_space = self.env_config.get_gym_spaces()
         self.episode_i = 0
         self.percentageSubs = np.zeros((20))
@@ -176,7 +176,7 @@ class WholesaleController:
             #self._log.info(f"obs after {self.last_obs}")
             obs = self._standardize_observation(self.last_obs)
             # Check if obs is complete.
-            
+            self._log.info(len(obs.to_feature_vector(0)))
             if len(obs.to_feature_vector(0)) != self.observation_space.shape[0]:
                 self._log.info(f"obs has wrong length {len(obs.to_feature_vector(0))}")
                 self.finished_observation = False
