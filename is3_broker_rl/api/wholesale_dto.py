@@ -57,7 +57,7 @@ class Observation(BaseModel):
 
     def to_feature_vector(self, time_diff: int):
         
-        full_state_space = True
+        full_state_space = False
         time_diff_list = [0]*24
         time_diff_list[time_diff] = 1
         if len(self.p_cloud_cover) != 24:
