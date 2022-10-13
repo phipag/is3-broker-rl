@@ -223,7 +223,7 @@ class MyModelClass(SACTFModel):
 
         # Preprocess observation with a hidden layer and send to LSTM cell
         dense1 = tf.keras.layers.Dense(
-            512, activation=tf.nn.tanh, name="dense1", kernel_regularizer='l1_l2'
+            512, activation=tf.nn.relu, name="dense1", kernel_regularizer='l1_l2'
         )(input_layer)
         dense2 = tf.keras.layers.Dense(
             512, activation=tf.nn.relu, name="dense2", kernel_regularizer='l1_l2'
