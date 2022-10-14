@@ -204,13 +204,13 @@ class Env_config:
             config["framework"] = "tf2"
             config["twin_q"] = True
             config["optimization"] = {
-                "actor_learning_rate": 3e-4,
-                "critic_learning_rate": 3e-4,
-                "entropy_learning_rate": 3e-4,
+                "actor_learning_rate": 3e-5,
+                "critic_learning_rate": 3e-3,
+                "entropy_learning_rate": 3e-3,
             }
             config["Q_model"] = {
                 "fcnet_hiddens": [1024, 1024],
-                "fcnet_activation": "tanh",
+                "fcnet_activation": "relu",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
                 "custom_model": None,  # Use this to define custom Q-model(s).
@@ -218,7 +218,7 @@ class Env_config:
             }
             config["policy_model"] = {
                 "fcnet_hiddens": [1024, 1024],
-                "fcnet_activation": "tanh",
+                "fcnet_activation": "relu",
                 "post_fcnet_hiddens": [],
                 "post_fcnet_activation": None,
                 "custom_model": None,  # Use this to define a custom policy model.
@@ -229,7 +229,7 @@ class Env_config:
                 "type": "MultiAgentPrioritizedReplayBuffer",
                 "capacity": int(1e5),
                 # How many steps of the model to sample before learning starts.
-                "learning_starts": 1500 * 24, # * 24 because we take 24 actions per timeslot
+                "learning_starts": 50000, # * 24 because we take 24 actions per timeslot
                 "storage_unit": "timesteps",
             
             
@@ -242,7 +242,7 @@ class Env_config:
                 "compress_observations": True,
             }
             config["tau"] = 1e-3
-            config["initial_alpha"] = 0.5
+            config["initial_alpha"] = 1
             config["target_entropy"] = "auto"
 
 
@@ -314,10 +314,10 @@ class Env_config:
             # Learning rate for the critic (Q-function) optimizer.
             "critic_lr": 0.001, #tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
             # Learning rate for the actor (policy) optimizer.
-            "actor_lr": 0.0005,#tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
+            "actor_lr": 0.005,#tf.keras.optimizers.schedules.ExponentialDecay(0.0001, 100, 0.85),
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
-            "tau": 0.002,
+            "tau": 0.004,
             # If True, use huber loss instead of squared loss for critic network
             # Conventionally, no need to clip gradients if using a huber loss
             "use_huber": True,

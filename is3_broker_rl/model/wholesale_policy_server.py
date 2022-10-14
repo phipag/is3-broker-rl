@@ -64,7 +64,7 @@ def start_policy_server():
             verbose=3,
             local_dir=os.environ.get("DATA_DIR", "logs/"),
             log_to_file=True,
-            name=f"{trainer_name}_04_10_conti2_new_cust_model",
+            name=f"{trainer_name}_11_10_conti2_new_cust_model_no_sell6",
             resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
             mode="max",
             max_failures = -1,

@@ -229,6 +229,15 @@ class WholesaleController:
                     if temp_action[2] < 0:
                         action_list[temp_i] = 0
                         action_list[temp_i+1] = -1
+
+                    if temp_action[0] < 0:
+                        action_list[temp_i] = 0
+                        action_list[temp_i+1] = -1
+                        
+                    # Avoid selling energy if we do not need to buy any. 
+                    if (self.last_obs.needed_mWh[time_diff] < 0) & (temp_action[0] < 0):
+                        action_list[temp_i] = 0
+                        action_list[temp_i+1] = -1
                 temp_i +=2
 
 
@@ -293,8 +302,8 @@ class WholesaleController:
                         price = 1
                         self._log.info(f"Price is negative")
                     # Action ranges from -1 to 1.
-                    # Adding +1 results in a price distribution from 0% to 200%.
-                    action_scaled[i] = ((1+ action[i]) * price) * sign
+                    # Adding +1 results in a price distribution from 0% to 300%.
+                    action_scaled[i] = ((2+ action[i]) * price) * sign
 
             self._log.info(f"Algorithm predicted action={action_scaled}. Persisting to .csv file ...")
             return_string = ""
@@ -697,8 +706,8 @@ class WholesaleController:
                     p_cloud_cover=obs.get("p_cloud_cover"),
                     p_temperature=obs.get("p_temperature"),
                     p_wind_speed=obs.get("p_wind_speed"),
-                    cleared_orders_price=obs.get("cleared_orders_price"),
                     cleared_orders_energy=obs.get("cleared_orders_energy"),
+                    cleared_orders_price=obs.get("cleared_orders_price"),
                     cleared_trade_price=obs.get("cleared_trade_price"),
                     cleared_trade_energy=obs.get("cleared_trade_energy"),
                     customer_count=obs.get("customer_count"),
