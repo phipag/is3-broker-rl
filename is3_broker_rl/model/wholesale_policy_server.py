@@ -43,7 +43,7 @@ def start_policy_server():
         env_config = Env_config(SERVER_ADDRESS, SERVER_BASE_PORT, N_WORKERS, False)
         observation_space, action_space = env_config.get_gym_spaces()
         
-        trainer_name = "SAC" # "SAC" or "TD3"
+        trainer_name = "TD3" # "SAC" or "TD3"
         enable_RE3_exploration = False
         config = env_config.get_rl_config(trainer_name)
 
@@ -64,7 +64,7 @@ def start_policy_server():
             verbose=3,
             local_dir=os.environ.get("DATA_DIR", "logs/"),
             log_to_file=True,
-            name=f"{trainer_name}_11_10_conti2_new_cust_model_no_sell6",
+            name=f"{trainer_name}_19_10_no_sell9_reward_shaping",
             resume="AUTO", # If the trial failed use restore="path_to_checkpoint" instead. 
             mode="max",
             max_failures = -1,

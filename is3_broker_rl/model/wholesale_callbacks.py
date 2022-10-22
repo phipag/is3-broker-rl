@@ -144,19 +144,20 @@ class MyCallbacks(DefaultCallbacks):
             #logging.info(f"episode {episode}")
             #logging.info("postprocessed {} ".format())
             # Do this on_episode_start to initialize the list.
+            info_dict = episode.last_info_for()
             logging.info(f"post_processed_next_obs {postprocessed_batch}")
             #logging.info(f" pp_b reward shape: {len(postprocessed_batch['rewards'])}")
             logging.info(f"post_processed_next_obs {np.shape(postprocessed_batch['new_obs'])}")
             #logging.info(f"on_postprocess_trajectory: last_reward reward: {self.last_reward}")
         #
-            logging.info(f"on_postprocess_trajectory: user data reward: {episode.user_data['env_reward']}")
+            logging.info(f"on_postprocess_trajectory: user data reward: {postprocessed_batch['rewards']}")
         #
-            logging.info(f"on_postprocess_trajectory: user data reward: {episode.last_info_for()}")
+            logging.info(f"on_postprocess_trajectory: user data reward: {info_dict['reward']}")
             #
             
             logging.info(f"on_postprocess_trajectory: user data last action: {episode.last_action_for()}")
 
-            info_dict = episode.last_info_for()
+            
             reward = postprocessed_batch["rewards"]
             new_reward = np.zeros((len(reward))) *-1
 
@@ -199,75 +200,75 @@ class MyCallbacks(DefaultCallbacks):
             
 
 
-            #new_reward = np.ones((len(postprocessed_batch))) *-1
+            new_reward = np.ones((len(postprocessed_batch))) *-1
             # At first only filter really bad rewards.
-            #if info_dict["reward"] < -0.2:
-            #    # Check in what direction we are unbalanced.
-            #    if info_dict["sum_mWh"] < info_dict["reward_market_balance"]:
-            #        imbalance_bought_too_much = 1
-#
-            #    else:
-            #        imbalance_bought_too_much = -1
-#
-            #    actions = postprocessed_batch['actions']
-            #    #logging.info(f"obs: {postprocessed_batch['obs']}")
-            #    
-            #    # Go through every action
-            #    for time_i in range(len(postprocessed_batch)):
-            #        # actions are sorted the other way around from our logic.
-            #        action_i = len(postprocessed_batch) - time_i - 1
-            #        logging.info(f"Actions in post_batch: {actions[action_i]}")
-#
-            #        # check all actions where the market_balance is less than the needed value and the 
-            #        # total imbalance is negative. Thus the action we select is contributing to this imbalance.
-            #        logging.info(f"market_balance: {info_dict['market_balance'][time_i]}, sum_mWh {info_dict['sum_mWh']},imbalance bool: {imbalance_bought_too_much}")
-            #        # Add reward for taking the first action in the right direction. 
-            #        # This should help because the most energy is traded at the first timeslot.
-            #        if (time_i == 0) & (actions[23][2] > 0 ) & (actions[23][0] > 0 ) & (info_dict["sum_mWh"] > 0):
-            #            new_reward[action_i] = info_dict["reward"] + 0.5
-            #        elif (time_i == 0) & (actions[23][2] > 0 ) & (actions[23][0] < 0 ) & (info_dict["sum_mWh"] < 0):
-            #            new_reward[action_i] = info_dict["reward"] + 0.5    
-#
-            #        elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
-            #                & (actions[action_i][0] < 0) & (actions[action_i][2]>0)
-            #                ):
-#
-            #            new_reward[action_i] = info_dict["reward"]*2
-#
-            #        # catch all no actions and give them halve the reward of the final actions. (The agent should have tried to buy energy.)
-            #        elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
-            #                & (actions[action_i][0] < 0) & (actions[action_i][2]<0)
-            #                ):
-#
-            #            new_reward[action_i] = info_dict["reward"]
-#
-            #        elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
-            #                & (actions[action_i][0] > 0) & (actions[action_i][2]>0)
-            #                ):
-#
-            #            new_reward[action_i] = info_dict["reward"] / 2
-#
-#
-#
-            #        # The case of buying too much. 
-            #        elif ((info_dict["market_balance"][time_i] > info_dict["sum_mWh"]) & (imbalance_bought_too_much == 1) 
-            #                & (actions[action_i][0] > 0) & (actions[action_i][2]>0)
-            #                ):
-#
-            #            new_reward[action_i] = info_dict["reward"]*2
-#
-            #        # catch all no actions and give them halve the reward of the final actions. (The agent should have tried to buy energy.)
-            #        elif ((info_dict["market_balance"][time_i] > info_dict["sum_mWh"]) & (imbalance_bought_too_much == 1) 
-            #                & (actions[action_i][0] > 0) & (actions[action_i][2]<0)
-            #                ):
-#
-            #            new_reward[action_i] = info_dict["reward"]
-#
-            #        elif ((info_dict["market_balance"][time_i] > info_dict["sum_mWh"]) & (imbalance_bought_too_much == 1) 
-            #                & (actions[action_i][0] < 0) & (actions[action_i][2]>0)
-            #                ):
-#
-            #            new_reward[action_i] = info_dict["reward"] / 2
+            if info_dict["reward"] < -0.2:
+                # Check in what direction we are unbalanced.
+                if info_dict["sum_mWh"] < info_dict["reward_market_balance"]:
+                    imbalance_bought_too_much = 1
+
+                else:
+                    imbalance_bought_too_much = -1
+
+                actions = postprocessed_batch['actions']
+                #logging.info(f"obs: {postprocessed_batch['obs']}")
+                
+                # Go through every action
+                for time_i in range(len(postprocessed_batch)):
+                    # actions are sorted the other way around from our logic.
+                    action_i = len(postprocessed_batch) - time_i - 1
+                    logging.info(f"Actions in post_batch: {actions[action_i]}")
+
+                    # check all actions where the market_balance is less than the needed value and the 
+                    # total imbalance is negative. Thus the action we select is contributing to this imbalance.
+                    logging.info(f"market_balance: {info_dict['market_balance'][time_i]}, sum_mWh {info_dict['sum_mWh']},imbalance bool: {imbalance_bought_too_much}")
+                    # Add reward for taking the first action in the right direction. 
+                    # This should help because the most energy is traded at the first timeslot.
+                    if (time_i == 0) & (actions[23][2] > 0 ) & (actions[23][0] > 0 ) & (info_dict["sum_mWh"] > 0):
+                        new_reward[action_i] = info_dict["reward"] + 0.5
+                    elif (time_i == 0) & (actions[23][2] > 0 ) & (actions[23][0] < 0 ) & (info_dict["sum_mWh"] < 0):
+                        new_reward[action_i] = info_dict["reward"] + 0.5    
+
+                    elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
+                            & (actions[action_i][0] < 0) & (actions[action_i][2]>0)
+                            ):
+
+                        new_reward[action_i] = info_dict["reward"]*2
+
+                    # catch all no actions and give them halve the reward of the final actions. (The agent should have tried to buy energy.)
+                    elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
+                            & (actions[action_i][0] < 0) & (actions[action_i][2]<0)
+                            ):
+
+                        new_reward[action_i] = info_dict["reward"]
+
+                    elif ((info_dict["market_balance"][time_i] < info_dict["sum_mWh"]) & (imbalance_bought_too_much == -1) 
+                            & (actions[action_i][0] > 0) & (actions[action_i][2]>0)
+                            ):
+
+                        new_reward[action_i] = info_dict["reward"] / 2
+
+
+
+                    # The case of buying too much. 
+                    elif ((info_dict["market_balance"][time_i] > info_dict["sum_mWh"]) & (imbalance_bought_too_much == 1) 
+                            & (actions[action_i][0] > 0) & (actions[action_i][2]>0)
+                            ):
+
+                        new_reward[action_i] = info_dict["reward"]*2
+
+                    # catch all no actions and give them halve the reward of the final actions. (The agent should have tried to buy energy.)
+                    elif ((info_dict["market_balance"][time_i] > info_dict["sum_mWh"]) & (imbalance_bought_too_much == 1) 
+                            & (actions[action_i][0] > 0) & (actions[action_i][2]<0)
+                            ):
+
+                        new_reward[action_i] = info_dict["reward"]
+
+                    elif ((info_dict["market_balance"][time_i] > info_dict["sum_mWh"]) & (imbalance_bought_too_much == 1) 
+                            & (actions[action_i][0] < 0) & (actions[action_i][2]>0)
+                            ):
+
+                        new_reward[action_i] = info_dict["reward"] / 2
 
             # Catch all other rewards and give them the reward.
             for time_i in range(len(postprocessed_batch)):
@@ -283,25 +284,22 @@ class MyCallbacks(DefaultCallbacks):
                     
                         
             
-            new_reward += (info_dict["balancing_reward"]  * 100)
+            #new_reward += (info_dict["balancing_reward"]  * 100)
             
             if new_reward[0] > 0:
                 logging.info("True")
                 new_reward += 30    
             new_reward += 5
             if new_reward[0] < 3:
-                new_reward = np.zeros(len(new_reward))
+                new_reward = np.ones(len(new_reward))
             
-            for action in actions:
-                if action[2] < 0:
-                    null_actions_counter += 1
-
-            if null_actions_counter == len(actions):
-                new_reward -= 5
+            #logging.info(f"Maket_Balance: {info_dict['market_balance'][0]}")
+            a = (info_dict["market_balance"][0] == 0.0)
+            logging.info(f"A {a}")
+            if (info_dict["market_balance"][0] == 0.0):
+                logging.info("True2")
+                new_reward = (np.zeros((len(postprocessed_batch['rewards']))))
             
-            
-            
-
             new_reward = new_reward.tolist()
             postprocessed_batch["rewards"] = new_reward
             
@@ -389,6 +387,7 @@ class MyCallbacks(DefaultCallbacks):
                         policy, result
                     )
                 )
+                logging.info(f"batch: {train_batch['rewards']}")
                 #logging.info(
                 #    "policy.learn_on_batch() result: {} ->  episode ids: {}, {}, {}".format(
                 #        policy, train_batch["eps_id"], train_batch["infos"],  train_batch["actions"]

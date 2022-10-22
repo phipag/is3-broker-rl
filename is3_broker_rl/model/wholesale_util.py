@@ -5,7 +5,7 @@ import gym
 import numpy as np
 from ray.rllib.agents.trainer import with_common_config
 from ray.rllib.env import PolicyServerInput
-from is3_broker_rl.model import wholesale_custom_model
+#from is3_broker_rl.model import wholesale_custom_model
 from is3_broker_rl.model.consumption_tariff_config import N_WORKERS
 from is3_broker_rl.model.wholesale_callbacks import MyCallbacks
 from ray.rllib.agents.callbacks import DefaultCallbacks
@@ -184,7 +184,7 @@ class Env_config:
             
             "rollout_fragment_length": 24,
             # Size of a batched sampled from replay buffer for training.
-            "train_batch_size": 24*12,
+            "train_batch_size": 24*100,
             # Update the target network every `target_network_update_freq` steps.
             "target_network_update_freq": 1,
             "store_buffer_in_checkpoints": True,
@@ -202,7 +202,7 @@ class Env_config:
 
         if trainer_name == "SAC":
             config["framework"] = "tf2"
-            config["twin_q"] = True
+            config["twin_q"] = False
             config["optimization"] = {
                 "actor_learning_rate": 3e-5,
                 "critic_learning_rate": 3e-3,
@@ -241,7 +241,7 @@ class Env_config:
                 # Whether to LZ4 compress observations
                 "compress_observations": True,
             }
-            config["tau"] = 1e-3
+            config["tau"] = 5e-4
             config["initial_alpha"] = 1
             config["target_entropy"] = "auto"
 
@@ -273,7 +273,7 @@ class Env_config:
             # Postprocess the policy network model output with these hidden layers. If
             # use_state_preprocessor is False, then these will be the *only* hidden
             # layers in the network.
-            "actor_hiddens": [400, 300],
+            "actor_hiddens": [64, 64, 64,64],
             # Hidden layers activation of the postprocessing stage of the policy
             # network
             "actor_hidden_activation": "relu",
@@ -327,7 +327,24 @@ class Env_config:
             "l2_reg": 1e-6,
             # If not None, clip gradients during optimization at this value
             "grad_clip": None,
-            "smooth_target_policy": True,
+            "smooth_target_policy": False,
+            "exploration_config":{
+                # TD3 uses simple Gaussian noise on top of deterministic NN-output
+                # actions (after a possible pure random phase of n timesteps).
+                "type": "GaussianNoise",
+                # For how many timesteps should we return completely random
+                # actions, before we start adding (scaled) noise?
+                "random_timesteps": 10000,
+                # Gaussian stddev of action noise for exploration.
+                "stddev": 0.1,
+                # Scaling settings by which the Gaussian noise is scaled before
+                # being added to the actions. NOTE: The scale timesteps start only
+                # after(!) any random steps have been finished.
+                # By default, do not anneal over time (fixed 1.0).
+                "initial_scale": 1.0,
+                "final_scale": 1.0,
+                "scale_timesteps": 1,
+                }
             })
 
         if trainer_name == "A3C":
@@ -364,14 +381,7 @@ class Env_config:
                 #"lstm_use_prev_action_reward": -1,
                 #"batch_size": 24,
             })
-            # TODO: Register custom model.
-            custom_model = wholesale_custom_model.MyModelClass(
-                obs_space=self.observation_space,
-                action_space=self.action_space,
-                seq_len=24,
-                model_config={
-                },
-            )
+            
             #t_config = TrainerConfig().training().environment(observation_space=self.observation_space, action_space=self.action_space).input_config().callbacks(MyCallbacks)
             #config = t_config.to_dict()
             
