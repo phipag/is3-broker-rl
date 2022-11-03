@@ -35,6 +35,7 @@ typing-extensions = "^4.3.0"
 papermill = "^2.3.4"
 notebook = "^6.4.12"
 shap = "^0.41.0"
+statsmodels = "^0.13.5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
