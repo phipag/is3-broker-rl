@@ -36,6 +36,7 @@ papermill = "^2.3.4"
 notebook = "^6.4.12"
 shap = "^0.41.0"
 statsmodels = "^0.13.5"
+is3-powertac-analysis = {git = "ssh://git@github.com/IS3UniCologne/is3-powertac-analysis"}
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

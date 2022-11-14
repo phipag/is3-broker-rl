@@ -859,6 +859,28 @@ optional = false
 python-versions = "*"
 
 [[package]]
+name = "is3-powertac-analysis"
+version = "0.1.0"
+description = "Game analyzer for the Power TAC platform."
+category = "dev"
+optional = false
+python-versions = ">=3.8.1,<3.11"
+develop = false
+
+[package.dependencies]
+matplotlib = "^3.5.2"
+numpy = "^1.23.0"
+pandas = "^1.4.3"
+scipy = "^1.8.0"
+seaborn = "^0.11.2"
+
+[package.source]
+type = "git"
+url = "ssh://git@github.com/IS3UniCologne/is3-powertac-analysis"
+reference = "HEAD"
+resolved_reference = "2208f194f198233dbf142c475aa46f7d737da0ee"
+
+[[package]]
 name = "isort"
 version = "5.10.1"
 description = "A Python utility / library to sort Python imports."
@@ -2769,7 +2791,7 @@ testing = ["flake8 (<5)", "func-timeout", "jaraco.functools", "jaraco.itertools"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.1,<3.11"
-content-hash = "5dd7ed066f5cb45a7a064ff51315a52b5081c3436153ec0cfb67be030b7782b9"
+content-hash = "0efeb3ac3b7d89d6e41c9cadde70c86098f15eb434961c365e3731686289f746"
 
 [metadata.files]
 absl-py = [
@@ -3492,6 +3514,7 @@ ipython-genutils = [
     {file = "ipython_genutils-0.2.0-py2.py3-none-any.whl", hash = "sha256:72dd37233799e619666c9f639a9da83c34013a73e8bbc79a7a6348d93c61fab8"},
     {file = "ipython_genutils-0.2.0.tar.gz", hash = "sha256:eb2e116e75ecef9d4d228fdc66af54269afa26ab4463042e33785b887c628ba8"},
 ]
+is3-powertac-analysis = []
 isort = [
     {file = "isort-5.10.1-py3-none-any.whl", hash = "sha256:6f62d78e2f89b4500b080fe3a81690850cd254227f27f75c3a0c491a1f351ba7"},
     {file = "isort-5.10.1.tar.gz", hash = "sha256:e8443a5e7a020e9d7f97f1d7d9cd17c88bcb3bc7e218bf9cf5095fe550be2951"},
@@ -4109,6 +4132,8 @@ pickleshare = [
     {file = "pickleshare-0.7.5.tar.gz", hash = "sha256:87683d47965c1da65cdacaf31c8441d12b8044cdec9aca500cd78fc2c683afca"},
 ]
 pillow = [
+    {file = "Pillow-9.3.0-1-cp37-cp37m-win32.whl", hash = "sha256:e6ea6b856a74d560d9326c0f5895ef8050126acfdc7ca08ad703eb0081e82b74"},
+    {file = "Pillow-9.3.0-1-cp37-cp37m-win_amd64.whl", hash = "sha256:32a44128c4bdca7f31de5be641187367fe2a450ad83b833ef78910397db491aa"},
     {file = "Pillow-9.3.0-cp310-cp310-macosx_10_10_x86_64.whl", hash = "sha256:0b7257127d646ff8676ec8a15520013a698d1fdc48bc2a79ba4e53df792526f2"},
     {file = "Pillow-9.3.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b90f7616ea170e92820775ed47e136208e04c967271c9ef615b6fbd08d9af0e3"},
     {file = "Pillow-9.3.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:68943d632f1f9e3dce98908e873b3a090f6cba1cbb1b892a9e8d97c938871fbe"},
